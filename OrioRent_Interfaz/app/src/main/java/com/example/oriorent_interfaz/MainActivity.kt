@@ -4,17 +4,18 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
-import android.content.ContentValues
-import android.content.Context
-import android.database.sqlite.SQLiteDatabase
-import android.database.sqlite.SQLiteOpenHelper
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.tooling.preview.Preview
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -22,55 +23,42 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             MaterialTheme {
-                SimpleDatabaseScreen()
+                OrioRentApp()
             }
         }
     }
 }
 
-// Helper simplificado
-class SimpleDBHelper(context: Context) : SQLiteOpenHelper(context, "simpleDB.db", null, 1) {
+@Composable
+fun OrioRentApp() {
+    var pantallaActual by remember { mutableStateOf("login") }
 
-    override fun onCreate(db: SQLiteDatabase) {
-        db.execSQL("""
-            CREATE TABLE USUARIO (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                nombre TEXT,
-                email TEXT
-            )
-        """)
-    }
-
-    override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
-        db.execSQL("DROP TABLE IF EXISTS USUARIO")
-        onCreate(db)
-    }
-
-    fun agregarUsuario(nombre: String, email: String) {
-        val db = writableDatabase
-        val values = ContentValues().apply {
-            put("nombre", nombre)
-            put("email", email)
-        }
-        db.insert("USUARIO", null, values)
-        db.close()
-    }
-
-    fun contarUsuarios(): Int {
-        val db = readableDatabase
-        val cursor = db.rawQuery("SELECT COUNT(*) FROM USUARIO", null)
-        cursor.moveToFirst()
-        val count = cursor.getInt(0)
-        cursor.close()
-        db.close()
-        return count
+    when (pantallaActual) {
+        "login" -> LoginScreen(
+            onLoginSuccess = { pantallaActual = "main" },
+            onRegistroClick = { pantallaActual = "registro" }
+        )
+        "registro" -> RegistroScreen(
+            onRegistroSuccess = { pantallaActual = "login" },
+            onBackClick = { pantallaActual = "login" }
+        )
+        "main" -> MainScreen(
+            onLogout = { pantallaActual = "login" }
+        )
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SimpleDatabaseScreen() {
+fun LoginScreen(
+    onLoginSuccess: () -> Unit,
+    onRegistroClick: () -> Unit
+) {
     val context = LocalContext.current
-    var contador by remember { mutableStateOf(0) }
+    var email by remember { mutableStateOf("") }
+    var contrasena by remember { mutableStateOf("") }
+    var mensaje by remember { mutableStateOf("") }
+    var isLoading by remember { mutableStateOf(false) }
 
     Column(
         modifier = Modifier
@@ -80,47 +68,384 @@ fun SimpleDatabaseScreen() {
         verticalArrangement = Arrangement.Center
     ) {
         Text(
-            text = "Usuarios en DB: $contador",
-            style = MaterialTheme.typography.headlineMedium
+            text = "OrioRent",
+            style = MaterialTheme.typography.headlineLarge,
+            modifier = Modifier.padding(bottom = 16.dp)
+        )
+
+        Text(
+            text = "Alquiler de Locales",
+            style = MaterialTheme.typography.titleMedium,
+            modifier = Modifier.padding(bottom = 48.dp)
+        )
+
+        OutlinedTextField(
+            value = email,
+            onValueChange = { email = it },
+            label = { Text("Email") },
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        OutlinedTextField(
+            value = contrasena,
+            onValueChange = { contrasena = it },
+            label = { Text("Contraseña") },
+            modifier = Modifier.fillMaxWidth(),
+            visualTransformation = PasswordVisualTransformation(),
+            singleLine = true
+        )
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        Button(
+            onClick = {
+                if (email.isBlank() || contrasena.isBlank()) {
+                    mensaje = "Por favor completa todos los campos"
+                    return@Button
+                }
+
+                isLoading = true
+                // En una app real, esto debería ser en un ViewModel/corrutina
+                val dbHelper = OrioRentDBHelper(context)
+                val loginExitoso = dbHelper.verificarLogin(email, contrasena)
+                dbHelper.close()
+
+                isLoading = false
+
+                if (loginExitoso) {
+                    mensaje = "¡Login exitoso!"
+                    onLoginSuccess()
+                } else {
+                    mensaje = "Email o contraseña incorrectos"
+                }
+            },
+            modifier = Modifier.fillMaxWidth(),
+            enabled = !isLoading
+        ) {
+            if (isLoading) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(20.dp),
+                    strokeWidth = 2.dp
+                )
+            } else {
+                Text("Iniciar Sesión")
+            }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        TextButton(
+            onClick = onRegistroClick
+        ) {
+            Text("¿No tienes cuenta? Regístrate")
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        if (mensaje.isNotEmpty()) {
+            Text(
+                text = mensaje,
+                color = if (mensaje.contains("incorrectos") || mensaje.contains("error", ignoreCase = true))
+                    MaterialTheme.colorScheme.error
+                else
+                    MaterialTheme.colorScheme.primary,
+                modifier = Modifier.padding(vertical = 8.dp)
+            )
+        }
+
+        // Botón de debug (solo para desarrollo)
+        Button(
+            onClick = {
+                val dbHelper = OrioRentDBHelper(context)
+                val usuarios = dbHelper.obtenerTodosUsuarios()
+                val categorias = dbHelper.obtenerCategorias()
+                mensaje = "Usuarios: ${usuarios.size}, Categorías: ${categorias.size}"
+                dbHelper.close()
+            },
+            modifier = Modifier.padding(top = 32.dp),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = MaterialTheme.colorScheme.secondary
+            )
+        ) {
+            Text("DEBUG: Ver datos")
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun RegistroScreen(
+    onRegistroSuccess: () -> Unit,
+    onBackClick: () -> Unit
+) {
+    val context = LocalContext.current
+    var nombre by remember { mutableStateOf("") }
+    var email by remember { mutableStateOf("") }
+    var contrasena by remember { mutableStateOf("") }
+    var confirmarContrasena by remember { mutableStateOf("") }
+    var mensaje by remember { mutableStateOf("") }
+    var isLoading by remember { mutableStateOf(false) }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(24.dp),
+        verticalArrangement = Arrangement.Center
+    ) {
+        // Botón para volver atrás
+        IconButton(
+            onClick = onBackClick,
+            modifier = Modifier.align(Alignment.Start)
+        ) {
+            Text("← Volver")
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        Text(
+            text = "Crear Cuenta",
+            style = MaterialTheme.typography.headlineMedium,
+            modifier = Modifier.padding(bottom = 32.dp)
+        )
+
+        OutlinedTextField(
+            value = nombre,
+            onValueChange = { nombre = it },
+            label = { Text("Nombre completo") },
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        OutlinedTextField(
+            value = email,
+            onValueChange = { email = it },
+            label = { Text("Email") },
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        OutlinedTextField(
+            value = contrasena,
+            onValueChange = { contrasena = it },
+            label = { Text("Contraseña") },
+            modifier = Modifier.fillMaxWidth(),
+            visualTransformation = PasswordVisualTransformation(),
+            singleLine = true
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        OutlinedTextField(
+            value = confirmarContrasena,
+            onValueChange = { confirmarContrasena = it },
+            label = { Text("Confirmar contraseña") },
+            modifier = Modifier.fillMaxWidth(),
+            visualTransformation = PasswordVisualTransformation(),
+            singleLine = true
         )
 
         Spacer(modifier = Modifier.height(32.dp))
 
         Button(
             onClick = {
-                val dbHelper = SimpleDBHelper(context)
-                dbHelper.agregarUsuario("Usuario ${contador + 1}", "email${contador + 1}@test.com")
-                contador = dbHelper.contarUsuarios()
-            }
+                // Validaciones
+                if (nombre.isBlank() || email.isBlank() || contrasena.isBlank()) {
+                    mensaje = "Por favor completa todos los campos"
+                    return@Button
+                }
+
+                if (contrasena != confirmarContrasena) {
+                    mensaje = "Las contraseñas no coinciden"
+                    return@Button
+                }
+
+                if (contrasena.length < 6) {
+                    mensaje = "La contraseña debe tener al menos 6 caracteres"
+                    return@Button
+                }
+
+                isLoading = true
+                val dbHelper = OrioRentDBHelper(context)
+                val resultado = dbHelper.insertarUsuario(nombre, email, contrasena)
+                dbHelper.close()
+                isLoading = false
+
+                if (resultado != -1L) {
+                    mensaje = "¡Registro exitoso! Por favor inicia sesión"
+                    // Limpiar campos
+                    nombre = ""
+                    email = ""
+                    contrasena = ""
+                    confirmarContrasena = ""
+                    // Volver al login después de 2 segundos
+                    // En una app real usarías corrutinas
+                    onRegistroSuccess()
+                } else {
+                    mensaje = "Error: El email ya está registrado"
+                }
+            },
+            modifier = Modifier.fillMaxWidth(),
+            enabled = !isLoading
         ) {
-            Text("Agregar Usuario")
+            if (isLoading) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(20.dp),
+                    strokeWidth = 2.dp
+                )
+            } else {
+                Text("Registrarse")
+            }
         }
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        Button(
-            onClick = {
-                val dbHelper = SimpleDBHelper(context)
-                contador = dbHelper.contarUsuarios()
-            }
+        if (mensaje.isNotEmpty()) {
+            Text(
+                text = mensaje,
+                color = if (mensaje.contains("éxito", ignoreCase = true))
+                    MaterialTheme.colorScheme.primary
+                else
+                    MaterialTheme.colorScheme.error,
+                modifier = Modifier.padding(vertical = 8.dp)
+            )
+        }
+    }
+}
+
+@Composable
+fun MainScreen(onLogout: () -> Unit) {
+    val context = LocalContext.current
+    var usuarios by remember { mutableStateOf<List<Usuario>>(emptyList()) }
+    var categorias by remember { mutableStateOf<List<Categoria>>(emptyList()) }
+
+    LaunchedEffect(Unit) {
+        val dbHelper = OrioRentDBHelper(context)
+        usuarios = dbHelper.obtenerTodosUsuarios()
+        categorias = dbHelper.obtenerCategorias()
+        dbHelper.close()
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(24.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Text("Actualizar Contador")
+            Text(
+                text = "Dashboard",
+                style = MaterialTheme.typography.headlineMedium
+            )
+
+            Button(onClick = onLogout) {
+                Text("Cerrar Sesión")
+            }
+        }
+
+        Spacer(modifier = Modifier.height(32.dp))
+
+        // Tarjetas de estadísticas
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Card(
+                modifier = Modifier.weight(1f)
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        text = usuarios.size.toString(),
+                        style = MaterialTheme.typography.headlineLarge
+                    )
+                    Text("Usuarios registrados")
+                }
+            }
+
+            Card(
+                modifier = Modifier.weight(1f)
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        text = categorias.size.toString(),
+                        style = MaterialTheme.typography.headlineLarge
+                    )
+                    Text("Categorías")
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(32.dp))
+
+        // Lista de usuarios
+        Text(
+            text = "Usuarios registrados:",
+            style = MaterialTheme.typography.titleMedium
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        LazyColumn {
+            items(usuarios) { usuario ->
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 4.dp)
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Text(
+                            text = usuario.nombre,
+                            style = MaterialTheme.typography.titleSmall
+                        )
+                        Text(
+                            text = usuario.email,
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                        Text(
+                            text = "Registrado: ${usuario.fecha_registro}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.outline
+                        )
+                    }
+                }
+            }
         }
     }
 }
 
 @Preview(showBackground = true)
 @Composable
-fun PantallaLoginPreview() {
+fun LoginPreview() {
     MaterialTheme {
-        // Necesitamos un contexto para el preview
-        // Usamos remember para simular un contexto en preview
-        val context = androidx.compose.ui.platform.LocalContext.current
-        Surface(
-            modifier = Modifier.fillMaxSize(),
-            color = MaterialTheme.colorScheme.background
-        ) {
-            SimpleDatabaseScreen()
-        }
+        LoginScreen(
+            onLoginSuccess = {},
+            onRegistroClick = {}
+        )
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun RegistroPreview() {
+    MaterialTheme {
+        RegistroScreen(
+            onRegistroSuccess = {},
+            onBackClick = {}
+        )
     }
 }
