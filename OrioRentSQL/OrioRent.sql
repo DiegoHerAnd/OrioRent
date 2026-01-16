@@ -1,0 +1,10 @@
+CREATE DATABASE IF NOT EXISTS OrioRent;
+USE orioRent;
+
+CREATE TABLE USUARIO (
+	id_usuario INT AUTO_INCREMENT PRIMARY KEY,
+    nombre VARCHAR(100),
+    email VARCHAR(100) UNIQUE,
+    contrasena VARCHAR(100), 
+    fechaRe
+);
