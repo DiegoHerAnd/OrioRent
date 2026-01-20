@@ -13,6 +13,14 @@ CREATE TABLE USUARIO (
 );
 
 -- ========================================
+-- Tabla CATEGORIA
+-- ========================================
+CREATE TABLE CATEGORIA (
+    id_categoria INT PRIMARY KEY,
+    nombre VARCHAR(100) NOT NULL,
+    descripcion TEXT
+);
+-- ========================================
 -- Tabla LOCAL
 -- ========================================
 CREATE TABLE LOCAL (
@@ -26,15 +34,6 @@ CREATE TABLE LOCAL (
     id_categoria INT,
     FOREIGN KEY (id_propietario) REFERENCES USUARIO(id_usuario),
     FOREIGN KEY (id_categoria) REFERENCES CATEGORIA(id_categoria)
-);
-
--- ========================================
--- Tabla CATEGORIA
--- ========================================
-CREATE TABLE CATEGORIA (
-    id_categoria INT PRIMARY KEY,
-    nombre VARCHAR(100) NOT NULL,
-    descripcion TEXT
 );
 
 -- ========================================
