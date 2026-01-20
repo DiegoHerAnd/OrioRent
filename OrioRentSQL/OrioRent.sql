@@ -13,7 +13,7 @@ CREATE TABLE USUARIO (
 );
 
 -- ========================================
--- Tabla CATEGORIA
+-- Tabla CatEGORIA
 -- ========================================
 CREATE TABLE CATEGORIA (
     id_categoria INT PRIMARY KEY,
