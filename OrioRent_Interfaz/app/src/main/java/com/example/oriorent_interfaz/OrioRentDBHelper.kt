@@ -4,6 +4,7 @@ import android.content.Context
 import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteOpenHelper
 import android.content.ContentValues
+import android.util.Log
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -11,7 +12,7 @@ class OrioRentDBHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NA
 
     companion object {
         private const val DATABASE_NAME = "orioRent.db"
-        private const val DATABASE_VERSION = 1
+        private const val DATABASE_VERSION = 2  // Incrementado para forzar recreación
 
         // Tablas
         const val TABLE_USUARIO = "USUARIO"
@@ -19,20 +20,14 @@ class OrioRentDBHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NA
         const val TABLE_CATEGORIA = "CATEGORIA"
         const val TABLE_RESERVA = "RESERVA"
         const val TABLE_METODOPAGO = "METODOPAGO"
-        const val TABLE_SERVICIO = "SERVICIO"
-        const val TABLE_FAVORITO = "FAVORITO"
-        const val TABLE_VALORACION = "VALORACION"
-        const val TABLE_IMAGENLOCAL = "IMAGENLOCAL"
-        const val TABLE_HORARIOLOCAL = "HORARIOLOCAL"
 
-        // Sentencias CREATE TABLE adaptadas a SQLite
         private const val CREATE_TABLE_USUARIO = """
             CREATE TABLE USUARIO (
                 id_usuario INTEGER PRIMARY KEY AUTOINCREMENT,
-                nombre TEXT,
-                email TEXT UNIQUE,
-                contrasena TEXT,
-                fecha_registro TEXT
+                nombre TEXT NOT NULL,
+                email TEXT UNIQUE NOT NULL,
+                contrasena TEXT NOT NULL,
+                fecha_registro TEXT NOT NULL
             )
         """
 
@@ -86,34 +81,36 @@ class OrioRentDBHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NA
                 FOREIGN KEY (id_reserva) REFERENCES RESERVA(id_reserva)
             )
         """
-
-        // ... (crea las demás tablas con la misma lógica)
     }
 
     override fun onCreate(db: SQLiteDatabase) {
-        // Crear todas las tablas en orden correcto (primero las independientes)
-        db.execSQL(CREATE_TABLE_USUARIO)
-        db.execSQL(CREATE_TABLE_CATEGORIA)
-        db.execSQL(CREATE_TABLE_LOCAL)
-        db.execSQL(CREATE_TABLE_RESERVA)
-        db.execSQL(CREATE_TABLE_METODOPAGO)
-//        db.execSQL(CREATE_TABLE_SERVICIO)
-//        db.execSQL(CREATE_TABLE_FAVORITO)
-//        db.execSQL(CREATE_TABLE_VALORACION)
-//        db.execSQL(CREATE_TABLE_IMAGENLOCAL)
-//        db.execSQL(CREATE_TABLE_HORARIOLOCAL)
+        Log.d("DB", "=== CREANDO BASE DE DATOS ===")
+        try {
+            db.execSQL(CREATE_TABLE_USUARIO)
+            Log.d("DB", "Tabla USUARIO creada")
 
-        // Insertar datos de prueba (opcional)
-        insertarDatosIniciales(db)
+            db.execSQL(CREATE_TABLE_CATEGORIA)
+            Log.d("DB", "Tabla CATEGORIA creada")
+
+            db.execSQL(CREATE_TABLE_LOCAL)
+            Log.d("DB", "Tabla LOCAL creada")
+
+            db.execSQL(CREATE_TABLE_RESERVA)
+            Log.d("DB", "Tabla RESERVA creada")
+
+            db.execSQL(CREATE_TABLE_METODOPAGO)
+            Log.d("DB", "Tabla METODOPAGO creada")
+
+            insertarDatosIniciales(db)
+            Log.d("DB", "Base de datos creada exitosamente")
+        } catch (e: Exception) {
+            Log.e("DB", "Error creando base de datos: ${e.message}", e)
+        }
     }
 
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
-        // Eliminar tablas en orden inverso (primero las dependientes)
-        db.execSQL("DROP TABLE IF EXISTS $TABLE_HORARIOLOCAL")
-        db.execSQL("DROP TABLE IF EXISTS $TABLE_IMAGENLOCAL")
-        db.execSQL("DROP TABLE IF EXISTS $TABLE_VALORACION")
-        db.execSQL("DROP TABLE IF EXISTS $TABLE_FAVORITO")
-        db.execSQL("DROP TABLE IF EXISTS $TABLE_SERVICIO")
+        Log.d("DB", "=== ACTUALIZANDO BASE DE DATOS de v$oldVersion a v$newVersion ===")
+
         db.execSQL("DROP TABLE IF EXISTS $TABLE_METODOPAGO")
         db.execSQL("DROP TABLE IF EXISTS $TABLE_RESERVA")
         db.execSQL("DROP TABLE IF EXISTS $TABLE_LOCAL")
@@ -124,121 +121,210 @@ class OrioRentDBHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NA
     }
 
     private fun insertarDatosIniciales(db: SQLiteDatabase) {
-        // Insertar categorías
-        val categorias = listOf(
-            "Salón de eventos" to "Espacios para celebraciones",
-            "Oficina" to "Espacios de trabajo",
-            "Almacén" to "Espacios de almacenamiento",
-            "Local comercial" to "Para negocios",
-            "Estudio" to "Para artistas y creadores"
-        )
+        Log.d("DB", "Insertando datos iniciales...")
 
-        categorias.forEachIndexed { index, (nombre, descripcion) ->
-            val values = ContentValues().apply {
-                put("id_categoria", index + 1)
-                put("nombre", nombre)
-                put("descripcion", descripcion)
+        try {
+            // Insertar categorías
+            val categorias = listOf(
+                1 to ("Salón de eventos" to "Espacios para celebraciones"),
+                2 to ("Oficina" to "Espacios de trabajo"),
+                3 to ("Almacén" to "Espacios de almacenamiento"),
+                4 to ("Local comercial" to "Para negocios"),
+                5 to ("Estudio" to "Para artistas y creadores")
+            )
+
+            categorias.forEach { (id, categoria) ->
+                val (nombre, descripcion) = categoria
+                val values = ContentValues().apply {
+                    put("id_categoria", id)
+                    put("nombre", nombre)
+                    put("descripcion", descripcion)
+                }
+                val result = db.insert(TABLE_CATEGORIA, null, values)
+                Log.d("DB", "Categoría '$nombre' insertada con ID: $result")
             }
-            db.insert(TABLE_CATEGORIA, null, values)
-        }
 
-        // Insertar usuario admin
-        val fechaActual = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
-        val usuarioAdmin = ContentValues().apply {
-            put("nombre", "Administrador")
-            put("email", "admin@oriorient.com")
-            put("contrasena", "admin123")
-            put("fecha_registro", fechaActual)
+            // Insertar usuario admin
+            val fechaActual = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date())
+            val usuarioAdmin = ContentValues().apply {
+                put("nombre", "Administrador")
+                put("email", "admin@oriorient.com")
+                put("contrasena", "admin123")
+                put("fecha_registro", fechaActual)
+            }
+            val adminId = db.insert(TABLE_USUARIO, null, usuarioAdmin)
+            Log.d("DB", "Usuario admin insertado con ID: $adminId")
+
+            // Verificar inserción
+            val cursor = db.rawQuery("SELECT * FROM $TABLE_USUARIO WHERE id_usuario = ?", arrayOf(adminId.toString()))
+            if (cursor.moveToFirst()) {
+                val email = cursor.getString(cursor.getColumnIndexOrThrow("email"))
+                val pass = cursor.getString(cursor.getColumnIndexOrThrow("contrasena"))
+                Log.d("DB", "Verificación admin: email='$email', pass='$pass'")
+            }
+            cursor.close()
+
+        } catch (e: Exception) {
+            Log.e("DB", "Error insertando datos iniciales: ${e.message}", e)
         }
-        db.insert(TABLE_USUARIO, null, usuarioAdmin)
     }
 
-    // ========== MÉTODOS CRUD PARA USUARIO ==========
-
     fun insertarUsuario(nombre: String, email: String, contrasena: String): Long {
-        val db = writableDatabase
-        val fechaActual = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
+        Log.d("DB", "insertarUsuario() - nombre='$nombre', email='$email'")
 
-        val values = ContentValues().apply {
-            put("nombre", nombre)
-            put("email", email)
-            put("contrasena", contrasena)
-            put("fecha_registro", fechaActual)
+        return try {
+            val db = writableDatabase
+            val fechaActual = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date())
+
+            val values = ContentValues().apply {
+                put("nombre", nombre)
+                put("email", email)
+                put("contrasena", contrasena)
+                put("fecha_registro", fechaActual)
+            }
+
+            val resultado = db.insert(TABLE_USUARIO, null, values)
+            Log.d("DB", "Usuario insertado con ID: $resultado")
+
+            if (resultado != -1L) {
+                // Verificar inserción
+                val cursor = db.rawQuery("SELECT * FROM $TABLE_USUARIO WHERE id_usuario = ?", arrayOf(resultado.toString()))
+                if (cursor.moveToFirst()) {
+                    val emailVerificado = cursor.getString(cursor.getColumnIndexOrThrow("email"))
+                    Log.d("DB", "Usuario verificado en DB: $emailVerificado")
+                }
+                cursor.close()
+            }
+
+            resultado
+        } catch (e: Exception) {
+            Log.e("DB", "Error insertando usuario: ${e.message}", e)
+            -1L
         }
-
-        return db.insert(TABLE_USUARIO, null, values)
     }
 
     fun verificarLogin(email: String, contrasena: String): Boolean {
-        val db = readableDatabase
-        val query = "SELECT * FROM $TABLE_USUARIO WHERE email = ? AND contrasena = ?"
-        val cursor = db.rawQuery(query, arrayOf(email, contrasena))
-        val existe = cursor.count > 0
-        cursor.close()
-        return existe
+        Log.d("DB", "verificarLogin() - email='$email', pass='${contrasena.take(3)}...'")
+
+        return try {
+            val db = readableDatabase
+            val query = "SELECT * FROM $TABLE_USUARIO WHERE email = ? AND contrasena = ?"
+            val cursor = db.rawQuery(query, arrayOf(email, contrasena))
+
+            val existe = cursor.count > 0
+
+            if (existe && cursor.moveToFirst()) {
+                val nombreUsuario = cursor.getString(cursor.getColumnIndexOrThrow("nombre"))
+                Log.d("DB", "Login exitoso para: $nombreUsuario")
+            } else {
+                Log.d("DB", "Login fallido - usuario no encontrado")
+
+                // Debug: mostrar todos los emails en la DB
+                val cursorDebug = db.rawQuery("SELECT email, contrasena FROM $TABLE_USUARIO", null)
+                Log.d("DB", "Emails en DB:")
+                while (cursorDebug.moveToNext()) {
+                    val emailDb = cursorDebug.getString(0)
+                    val passDb = cursorDebug.getString(1)
+                    Log.d("DB", "  - email='$emailDb', pass='$passDb'")
+                }
+                cursorDebug.close()
+            }
+
+            cursor.close()
+            existe
+        } catch (e: Exception) {
+            Log.e("DB", "Error verificando login: ${e.message}", e)
+            false
+        }
     }
 
     fun obtenerUsuarioPorEmail(email: String): Usuario? {
-        val db = readableDatabase
-        val query = "SELECT * FROM $TABLE_USUARIO WHERE email = ?"
-        val cursor = db.rawQuery(query, arrayOf(email))
+        Log.d("DB", "obtenerUsuarioPorEmail() - email='$email'")
 
-        return cursor.use {
-            if (it.moveToFirst()) {
-                Usuario(
-                    id_usuario = it.getInt(it.getColumnIndexOrThrow("id_usuario")),
-                    nombre = it.getString(it.getColumnIndexOrThrow("nombre")),
-                    email = it.getString(it.getColumnIndexOrThrow("email")),
-                    contrasena = it.getString(it.getColumnIndexOrThrow("contrasena")),
-                    fecha_registro = it.getString(it.getColumnIndexOrThrow("fecha_registro"))
-                )
-            } else {
-                null
+        return try {
+            val db = readableDatabase
+            val query = "SELECT * FROM $TABLE_USUARIO WHERE email = ?"
+            val cursor = db.rawQuery(query, arrayOf(email))
+
+            cursor.use {
+                if (it.moveToFirst()) {
+                    val usuario = Usuario(
+                        id_usuario = it.getInt(it.getColumnIndexOrThrow("id_usuario")),
+                        nombre = it.getString(it.getColumnIndexOrThrow("nombre")),
+                        email = it.getString(it.getColumnIndexOrThrow("email")),
+                        contrasena = it.getString(it.getColumnIndexOrThrow("contrasena")),
+                        fecha_registro = it.getString(it.getColumnIndexOrThrow("fecha_registro"))
+                    )
+                    Log.d("DB", "Usuario encontrado: ${usuario.nombre}")
+                    usuario
+                } else {
+                    Log.d("DB", "Usuario no encontrado")
+                    null
+                }
             }
+        } catch (e: Exception) {
+            Log.e("DB", "Error obteniendo usuario: ${e.message}", e)
+            null
         }
     }
 
     fun obtenerTodosUsuarios(): List<Usuario> {
+        Log.d("DB", "obtenerTodosUsuarios()")
+
         val usuarios = mutableListOf<Usuario>()
-        val db = readableDatabase
-        val cursor = db.rawQuery("SELECT * FROM $TABLE_USUARIO ORDER BY id_usuario", null)
 
-        cursor.use {
-            while (it.moveToNext()) {
-                val usuario = Usuario(
-                    id_usuario = it.getInt(it.getColumnIndexOrThrow("id_usuario")),
-                    nombre = it.getString(it.getColumnIndexOrThrow("nombre")),
-                    email = it.getString(it.getColumnIndexOrThrow("email")),
-                    contrasena = it.getString(it.getColumnIndexOrThrow("contrasena")),
-                    fecha_registro = it.getString(it.getColumnIndexOrThrow("fecha_registro"))
-                )
-                usuarios.add(usuario)
+        return try {
+            val db = readableDatabase
+            val cursor = db.rawQuery("SELECT * FROM $TABLE_USUARIO ORDER BY id_usuario", null)
+
+            cursor.use {
+                while (it.moveToNext()) {
+                    val usuario = Usuario(
+                        id_usuario = it.getInt(it.getColumnIndexOrThrow("id_usuario")),
+                        nombre = it.getString(it.getColumnIndexOrThrow("nombre")),
+                        email = it.getString(it.getColumnIndexOrThrow("email")),
+                        contrasena = it.getString(it.getColumnIndexOrThrow("contrasena")),
+                        fecha_registro = it.getString(it.getColumnIndexOrThrow("fecha_registro"))
+                    )
+                    usuarios.add(usuario)
+                }
             }
-        }
-        return usuarios
-    }
 
-    // ========== MÉTODOS PARA OTRAS TABLAS ==========
+            Log.d("DB", "Total usuarios obtenidos: ${usuarios.size}")
+            usuarios
+        } catch (e: Exception) {
+            Log.e("DB", "Error obteniendo usuarios: ${e.message}", e)
+            usuarios
+        }
+    }
 
     fun obtenerCategorias(): List<Categoria> {
+        Log.d("DB", "obtenerCategorias()")
+
         val categorias = mutableListOf<Categoria>()
-        val db = readableDatabase
-        val cursor = db.rawQuery("SELECT * FROM $TABLE_CATEGORIA ORDER BY id_categoria", null)
 
-        cursor.use {
-            while (it.moveToNext()) {
-                val categoria = Categoria(
-                    id_categoria = it.getInt(it.getColumnIndexOrThrow("id_categoria")),
-                    nombre = it.getString(it.getColumnIndexOrThrow("nombre")),
-                    descripcion = it.getString(it.getColumnIndexOrThrow("descripcion"))
-                )
-                categorias.add(categoria)
+        return try {
+            val db = readableDatabase
+            val cursor = db.rawQuery("SELECT * FROM $TABLE_CATEGORIA ORDER BY id_categoria", null)
+
+            cursor.use {
+                while (it.moveToNext()) {
+                    val categoria = Categoria(
+                        id_categoria = it.getInt(it.getColumnIndexOrThrow("id_categoria")),
+                        nombre = it.getString(it.getColumnIndexOrThrow("nombre")),
+                        descripcion = it.getString(it.getColumnIndexOrThrow("descripcion"))
+                    )
+                    categorias.add(categoria)
+                }
             }
-        }
-        return categorias
-    }
 
-    // ... agregar métodos para las demás tablas según necesites
+            Log.d("DB", "Total categorías obtenidas: ${categorias.size}")
+            categorias
+        } catch (e: Exception) {
+            Log.e("DB", "Error obteniendo categorías: ${e.message}", e)
+            categorias
+        }
+    }
 }
 
 // ========== MODELOS DE DATOS ==========
@@ -267,5 +353,3 @@ data class Local(
     val id_propietario: Int = 0,
     val id_categoria: Int = 0
 )
-
-// ... crear las demás clases de modelo

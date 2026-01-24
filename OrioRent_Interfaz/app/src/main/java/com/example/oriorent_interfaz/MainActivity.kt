@@ -1,6 +1,7 @@
 package com.example.oriorent_interfaz
 
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.*
@@ -14,12 +15,12 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.tooling.preview.Preview
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
+import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        Log.d("MainActivity", "App iniciada")
 
         setContent {
             MaterialTheme {
@@ -55,6 +56,7 @@ fun LoginScreen(
     onRegistroClick: () -> Unit
 ) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     var email by remember { mutableStateOf("") }
     var contrasena by remember { mutableStateOf("") }
     var mensaje by remember { mutableStateOf("") }
@@ -81,7 +83,7 @@ fun LoginScreen(
 
         OutlinedTextField(
             value = email,
-            onValueChange = { email = it },
+            onValueChange = { email = it.trim() },
             label = { Text("Email") },
             modifier = Modifier.fillMaxWidth(),
             singleLine = true
@@ -108,18 +110,40 @@ fun LoginScreen(
                 }
 
                 isLoading = true
-                // En una app real, esto debería ser en un ViewModel/corrutina
-                val dbHelper = OrioRentDBHelper(context)
-                val loginExitoso = dbHelper.verificarLogin(email, contrasena)
-                dbHelper.close()
+                scope.launch {
+                    try {
+                        Log.d("LOGIN", "=== INICIO LOGIN ===")
+                        Log.d("LOGIN", "Email ingresado: '$email'")
+                        Log.d("LOGIN", "Contraseña ingresada: '${contrasena.take(3)}...'")
 
-                isLoading = false
+                        val dbHelper = OrioRentDBHelper(context)
 
-                if (loginExitoso) {
-                    mensaje = "¡Login exitoso!"
-                    onLoginSuccess()
-                } else {
-                    mensaje = "Email o contraseña incorrectos"
+                        // Ver todos los usuarios en la DB
+                        val todosUsuarios = dbHelper.obtenerTodosUsuarios()
+                        Log.d("LOGIN", "Total usuarios en DB: ${todosUsuarios.size}")
+                        todosUsuarios.forEach { usuario ->
+                            Log.d("LOGIN", "Usuario DB: email='${usuario.email}', pass='${usuario.contrasena}'")
+                        }
+
+                        val loginExitoso = dbHelper.verificarLogin(email, contrasena)
+                        Log.d("LOGIN", "Resultado login: $loginExitoso")
+
+                        dbHelper.close()
+                        isLoading = false
+
+                        if (loginExitoso) {
+                            mensaje = "¡Login exitoso!"
+                            Log.d("LOGIN", "Login EXITOSO - Navegando a main")
+                            onLoginSuccess()
+                        } else {
+                            mensaje = "Email o contraseña incorrectos"
+                            Log.d("LOGIN", "Login FALLIDO")
+                        }
+                    } catch (e: Exception) {
+                        Log.e("LOGIN", "ERROR en login: ${e.message}", e)
+                        mensaje = "Error: ${e.message}"
+                        isLoading = false
+                    }
                 }
             },
             modifier = Modifier.fillMaxWidth(),
@@ -128,7 +152,8 @@ fun LoginScreen(
             if (isLoading) {
                 CircularProgressIndicator(
                     modifier = Modifier.size(20.dp),
-                    strokeWidth = 2.dp
+                    strokeWidth = 2.dp,
+                    color = MaterialTheme.colorScheme.onPrimary
                 )
             } else {
                 Text("Iniciar Sesión")
@@ -156,14 +181,43 @@ fun LoginScreen(
             )
         }
 
-        // Botón de debug (solo para desarrollo)
+        // Botón de debug
         Button(
             onClick = {
-                val dbHelper = OrioRentDBHelper(context)
-                val usuarios = dbHelper.obtenerTodosUsuarios()
-                val categorias = dbHelper.obtenerCategorias()
-                mensaje = "Usuarios: ${usuarios.size}, Categorías: ${categorias.size}"
-                dbHelper.close()
+                scope.launch {
+                    try {
+                        Log.d("DEBUG", "=== BOTÓN DEBUG ===")
+                        val dbHelper = OrioRentDBHelper(context)
+                        val usuarios = dbHelper.obtenerTodosUsuarios()
+                        val categorias = dbHelper.obtenerCategorias()
+
+                        Log.d("DEBUG", "Usuarios: ${usuarios.size}")
+                        usuarios.forEach {
+                            Log.d("DEBUG", "  - ${it.nombre} | ${it.email} | ${it.contrasena}")
+                        }
+
+                        Log.d("DEBUG", "Categorías: ${categorias.size}")
+                        categorias.forEach {
+                            Log.d("DEBUG", "  - ${it.nombre}")
+                        }
+
+                        val detalleUsuarios = usuarios.joinToString("\n") {
+                            "${it.nombre}: ${it.email}"
+                        }
+
+                        mensaje = """
+                            Usuarios: ${usuarios.size}
+                            Categorías: ${categorias.size}
+                            
+                            $detalleUsuarios
+                        """.trimIndent()
+
+                        dbHelper.close()
+                    } catch (e: Exception) {
+                        Log.e("DEBUG", "Error en debug: ${e.message}", e)
+                        mensaje = "Error: ${e.message}"
+                    }
+                }
             },
             modifier = Modifier.padding(top = 32.dp),
             colors = ButtonDefaults.buttonColors(
@@ -182,6 +236,7 @@ fun RegistroScreen(
     onBackClick: () -> Unit
 ) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     var nombre by remember { mutableStateOf("") }
     var email by remember { mutableStateOf("") }
     var contrasena by remember { mutableStateOf("") }
@@ -195,7 +250,6 @@ fun RegistroScreen(
             .padding(24.dp),
         verticalArrangement = Arrangement.Center
     ) {
-        // Botón para volver atrás
         IconButton(
             onClick = onBackClick,
             modifier = Modifier.align(Alignment.Start)
@@ -223,7 +277,7 @@ fun RegistroScreen(
 
         OutlinedTextField(
             value = email,
-            onValueChange = { email = it },
+            onValueChange = { email = it.trim() },
             label = { Text("Email") },
             modifier = Modifier.fillMaxWidth(),
             singleLine = true
@@ -272,23 +326,48 @@ fun RegistroScreen(
                 }
 
                 isLoading = true
-                val dbHelper = OrioRentDBHelper(context)
-                val resultado = dbHelper.insertarUsuario(nombre, email, contrasena)
-                dbHelper.close()
-                isLoading = false
+                scope.launch {
+                    try {
+                        Log.d("REGISTRO", "=== INICIO REGISTRO ===")
+                        Log.d("REGISTRO", "Nombre: '$nombre'")
+                        Log.d("REGISTRO", "Email: '$email'")
+                        Log.d("REGISTRO", "Contraseña: '${contrasena.take(3)}...'")
 
-                if (resultado != -1L) {
-                    mensaje = "¡Registro exitoso! Por favor inicia sesión"
-                    // Limpiar campos
-                    nombre = ""
-                    email = ""
-                    contrasena = ""
-                    confirmarContrasena = ""
-                    // Volver al login después de 2 segundos
-                    // En una app real usarías corrutinas
-                    onRegistroSuccess()
-                } else {
-                    mensaje = "Error: El email ya está registrado"
+                        val dbHelper = OrioRentDBHelper(context)
+                        val resultado = dbHelper.insertarUsuario(nombre, email, contrasena)
+
+                        Log.d("REGISTRO", "Resultado inserción: $resultado")
+
+                        // Verificar que se insertó
+                        if (resultado != -1L) {
+                            val usuarioInsertado = dbHelper.obtenerUsuarioPorEmail(email)
+                            Log.d("REGISTRO", "Usuario insertado verificado: $usuarioInsertado")
+                        }
+
+                        dbHelper.close()
+                        isLoading = false
+
+                        if (resultado != -1L) {
+                            mensaje = "¡Registro exitoso! Por favor inicia sesión"
+                            Log.d("REGISTRO", "Registro EXITOSO")
+                            // Limpiar campos
+                            nombre = ""
+                            email = ""
+                            contrasena = ""
+                            confirmarContrasena = ""
+
+                            // Esperar un poco antes de volver
+                            kotlinx.coroutines.delay(1500)
+                            onRegistroSuccess()
+                        } else {
+                            mensaje = "Error: El email ya está registrado"
+                            Log.d("REGISTRO", "Registro FALLIDO - Email duplicado")
+                        }
+                    } catch (e: Exception) {
+                        Log.e("REGISTRO", "ERROR en registro: ${e.message}", e)
+                        mensaje = "Error: ${e.message}"
+                        isLoading = false
+                    }
                 }
             },
             modifier = Modifier.fillMaxWidth(),
@@ -297,7 +376,8 @@ fun RegistroScreen(
             if (isLoading) {
                 CircularProgressIndicator(
                     modifier = Modifier.size(20.dp),
-                    strokeWidth = 2.dp
+                    strokeWidth = 2.dp,
+                    color = MaterialTheme.colorScheme.onPrimary
                 )
             } else {
                 Text("Registrarse")
@@ -322,14 +402,21 @@ fun RegistroScreen(
 @Composable
 fun MainScreen(onLogout: () -> Unit) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     var usuarios by remember { mutableStateOf<List<Usuario>>(emptyList()) }
     var categorias by remember { mutableStateOf<List<Categoria>>(emptyList()) }
 
     LaunchedEffect(Unit) {
-        val dbHelper = OrioRentDBHelper(context)
-        usuarios = dbHelper.obtenerTodosUsuarios()
-        categorias = dbHelper.obtenerCategorias()
-        dbHelper.close()
+        try {
+            Log.d("MAIN", "Cargando datos del dashboard")
+            val dbHelper = OrioRentDBHelper(context)
+            usuarios = dbHelper.obtenerTodosUsuarios()
+            categorias = dbHelper.obtenerCategorias()
+            Log.d("MAIN", "Usuarios: ${usuarios.size}, Categorías: ${categorias.size}")
+            dbHelper.close()
+        } catch (e: Exception) {
+            Log.e("MAIN", "Error cargando datos: ${e.message}", e)
+        }
     }
 
     Column(
@@ -347,7 +434,10 @@ fun MainScreen(onLogout: () -> Unit) {
                 style = MaterialTheme.typography.headlineMedium
             )
 
-            Button(onClick = onLogout) {
+            Button(onClick = {
+                Log.d("MAIN", "Cerrando sesión")
+                onLogout()
+            }) {
                 Text("Cerrar Sesión")
             }
         }
@@ -415,6 +505,11 @@ fun MainScreen(onLogout: () -> Unit) {
                         Text(
                             text = usuario.email,
                             style = MaterialTheme.typography.bodySmall
+                        )
+                        Text(
+                            text = "Contraseña: ${usuario.contrasena}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.outline
                         )
                         Text(
                             text = "Registrado: ${usuario.fecha_registro}",
