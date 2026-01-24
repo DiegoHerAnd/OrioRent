@@ -1,3 +1,9 @@
+## ⚠️ Advertencia
+
+```diff
+- Este es un proyecto en desarrollo.
+- No representa el producto final.
+
 ## Estructura del Proyecto
 
 El proyecto **OrioRent** está organizado en dos carpetas principales, cada una con un propósito específico:
