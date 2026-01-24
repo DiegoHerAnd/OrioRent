@@ -1,14 +1,15 @@
-## ⚠️ Advertencia
+# ⚠️ ADVERTENCIA
 
-```diff
-- Este es un proyecto en desarrollo.
-- No representa el producto final.
+> **Este es un proyecto en desarrollo y no representa el producto final.**
+
+---
 
 ## Estructura del Proyecto
 
 El proyecto **OrioRent** está organizado en dos carpetas principales, cada una con un propósito específico:
 
 ### 1. OrioRentSQL
+
 Esta carpeta contiene todos los scripts y archivos relacionados con la base de datos. Aquí se encuentra:
 
 - La estructura de la base de datos (tablas, relaciones, índices, etc.).
@@ -19,6 +20,7 @@ Esta carpeta contiene todos los scripts y archivos relacionados con la base de d
 Esta parte está pensada principalmente para los desarrolladores. Nos permite entender, mantener y actualizar la base de datos de forma eficiente sin afectar directamente la experiencia del usuario final. Es una herramienta interna de desarrollo y documentación.
 
 ### 2. OrioRent (Kotlin + SQLite)
+
 Esta carpeta contiene la aplicación desarrollada en **Kotlin**, que interactúa con la base de datos mediante **SQLite**. Aquí se encuentra:
 
 - El código de la aplicación que gestiona la lógica de negocio.
@@ -30,8 +32,9 @@ Esta parte es la que utiliza el público. Mientras que la base de datos contiene
 
 ---
 
-**Resumen:**  
-- `OrioRentSQL`: Para desarrolladores, manejo y mantenimiento de la base de datos.  
-- `OrioRent (Kotlin + SQLite)`: Para usuarios finales, interfaz y funcionalidades de la aplicación.
+## Resumen
+
+- **OrioRentSQL**: Para desarrolladores, manejo y mantenimiento de la base de datos.  
+- **OrioRent (Kotlin + SQLite)**: Para usuarios finales, interfaz y funcionalidades de la aplicación.
 
 Esta separación permite trabajar de manera organizada, facilitando tanto el desarrollo como el mantenimiento de la base de datos y la aplicación.
