@@ -1,25 +1,38 @@
 package com.example.oriorent_interfaz
 
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.tooling.preview.Preview
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
+import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        Log.d("MainActivity", "App iniciada")
 
         setContent {
             MaterialTheme {
@@ -42,7 +55,7 @@ fun OrioRentApp() {
             onRegistroSuccess = { pantallaActual = "login" },
             onBackClick = { pantallaActual = "login" }
         )
-        "main" -> MainScreen(
+        "main" -> MainScreenNew(
             onLogout = { pantallaActual = "login" }
         )
     }
@@ -55,6 +68,7 @@ fun LoginScreen(
     onRegistroClick: () -> Unit
 ) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     var email by remember { mutableStateOf("") }
     var contrasena by remember { mutableStateOf("") }
     var mensaje by remember { mutableStateOf("") }
@@ -63,25 +77,28 @@ fun LoginScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(24.dp),
+            .padding(24.dp)
+            .background(Color(0xFFE0E0E0)),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        Text(
-            text = "OrioRent",
-            style = MaterialTheme.typography.headlineLarge,
-            modifier = Modifier.padding(bottom = 16.dp)
+        Image(
+            painter = painterResource(id = R.drawable.logooriorent),
+            contentDescription = "Logo OrioRent",
+            modifier = Modifier
+                .size(220.dp)
+                .padding(bottom = 12.dp)
         )
 
         Text(
             text = "Alquiler de Locales",
             style = MaterialTheme.typography.titleMedium,
-            modifier = Modifier.padding(bottom = 48.dp)
+            modifier = Modifier.padding(bottom = 32.dp)
         )
 
         OutlinedTextField(
             value = email,
-            onValueChange = { email = it },
+            onValueChange = { email = it.trim() },
             label = { Text("Email") },
             modifier = Modifier.fillMaxWidth(),
             singleLine = true
@@ -108,18 +125,31 @@ fun LoginScreen(
                 }
 
                 isLoading = true
-                // En una app real, esto debería ser en un ViewModel/corrutina
-                val dbHelper = OrioRentDBHelper(context)
-                val loginExitoso = dbHelper.verificarLogin(email, contrasena)
-                dbHelper.close()
+                scope.launch {
+                    try {
+                        Log.d("LOGIN", "=== INICIO LOGIN ===")
+                        Log.d("LOGIN", "Email ingresado: '$email'")
 
-                isLoading = false
+                        val dbHelper = OrioRentDBHelper(context)
+                        val loginExitoso = dbHelper.verificarLogin(email, contrasena)
+                        Log.d("LOGIN", "Resultado login: $loginExitoso")
 
-                if (loginExitoso) {
-                    mensaje = "¡Login exitoso!"
-                    onLoginSuccess()
-                } else {
-                    mensaje = "Email o contraseña incorrectos"
+                        dbHelper.close()
+                        isLoading = false
+
+                        if (loginExitoso) {
+                            mensaje = "¡Login exitoso!"
+                            Log.d("LOGIN", "Login EXITOSO - Navegando a main")
+                            onLoginSuccess()
+                        } else {
+                            mensaje = "Email o contraseña incorrectos"
+                            Log.d("LOGIN", "Login FALLIDO")
+                        }
+                    } catch (e: Exception) {
+                        Log.e("LOGIN", "ERROR en login: ${e.message}", e)
+                        mensaje = "Error: ${e.message}"
+                        isLoading = false
+                    }
                 }
             },
             modifier = Modifier.fillMaxWidth(),
@@ -128,7 +158,8 @@ fun LoginScreen(
             if (isLoading) {
                 CircularProgressIndicator(
                     modifier = Modifier.size(20.dp),
-                    strokeWidth = 2.dp
+                    strokeWidth = 2.dp,
+                    color = MaterialTheme.colorScheme.onPrimary
                 )
             } else {
                 Text("Iniciar Sesión")
@@ -143,9 +174,8 @@ fun LoginScreen(
             Text("¿No tienes cuenta? Regístrate")
         }
 
-        Spacer(modifier = Modifier.height(16.dp))
-
         if (mensaje.isNotEmpty()) {
+            Spacer(modifier = Modifier.height(16.dp))
             Text(
                 text = mensaje,
                 color = if (mensaje.contains("incorrectos") || mensaje.contains("error", ignoreCase = true))
@@ -154,23 +184,6 @@ fun LoginScreen(
                     MaterialTheme.colorScheme.primary,
                 modifier = Modifier.padding(vertical = 8.dp)
             )
-        }
-
-        // Botón de debug (solo para desarrollo)
-        Button(
-            onClick = {
-                val dbHelper = OrioRentDBHelper(context)
-                val usuarios = dbHelper.obtenerTodosUsuarios()
-                val categorias = dbHelper.obtenerCategorias()
-                mensaje = "Usuarios: ${usuarios.size}, Categorías: ${categorias.size}"
-                dbHelper.close()
-            },
-            modifier = Modifier.padding(top = 32.dp),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = MaterialTheme.colorScheme.secondary
-            )
-        ) {
-            Text("DEBUG: Ver datos")
         }
     }
 }
@@ -182,6 +195,7 @@ fun RegistroScreen(
     onBackClick: () -> Unit
 ) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     var nombre by remember { mutableStateOf("") }
     var email by remember { mutableStateOf("") }
     var contrasena by remember { mutableStateOf("") }
@@ -195,7 +209,6 @@ fun RegistroScreen(
             .padding(24.dp),
         verticalArrangement = Arrangement.Center
     ) {
-        // Botón para volver atrás
         IconButton(
             onClick = onBackClick,
             modifier = Modifier.align(Alignment.Start)
@@ -223,7 +236,7 @@ fun RegistroScreen(
 
         OutlinedTextField(
             value = email,
-            onValueChange = { email = it },
+            onValueChange = { email = it.trim() },
             label = { Text("Email") },
             modifier = Modifier.fillMaxWidth(),
             singleLine = true
@@ -255,7 +268,6 @@ fun RegistroScreen(
 
         Button(
             onClick = {
-                // Validaciones
                 if (nombre.isBlank() || email.isBlank() || contrasena.isBlank()) {
                     mensaje = "Por favor completa todos los campos"
                     return@Button
@@ -272,23 +284,32 @@ fun RegistroScreen(
                 }
 
                 isLoading = true
-                val dbHelper = OrioRentDBHelper(context)
-                val resultado = dbHelper.insertarUsuario(nombre, email, contrasena)
-                dbHelper.close()
-                isLoading = false
+                scope.launch {
+                    try {
+                        Log.d("REGISTRO", "=== INICIO REGISTRO ===")
+                        val dbHelper = OrioRentDBHelper(context)
+                        val resultado = dbHelper.insertarUsuario(nombre, email, contrasena)
 
-                if (resultado != -1L) {
-                    mensaje = "¡Registro exitoso! Por favor inicia sesión"
-                    // Limpiar campos
-                    nombre = ""
-                    email = ""
-                    contrasena = ""
-                    confirmarContrasena = ""
-                    // Volver al login después de 2 segundos
-                    // En una app real usarías corrutinas
-                    onRegistroSuccess()
-                } else {
-                    mensaje = "Error: El email ya está registrado"
+                        dbHelper.close()
+                        isLoading = false
+
+                        if (resultado != -1L) {
+                            mensaje = "¡Registro exitoso! Por favor inicia sesión"
+                            nombre = ""
+                            email = ""
+                            contrasena = ""
+                            confirmarContrasena = ""
+
+                            kotlinx.coroutines.delay(1500)
+                            onRegistroSuccess()
+                        } else {
+                            mensaje = "Error: El email ya está registrado"
+                        }
+                    } catch (e: Exception) {
+                        Log.e("REGISTRO", "ERROR en registro: ${e.message}", e)
+                        mensaje = "Error: ${e.message}"
+                        isLoading = false
+                    }
                 }
             },
             modifier = Modifier.fillMaxWidth(),
@@ -297,16 +318,16 @@ fun RegistroScreen(
             if (isLoading) {
                 CircularProgressIndicator(
                     modifier = Modifier.size(20.dp),
-                    strokeWidth = 2.dp
+                    strokeWidth = 2.dp,
+                    color = MaterialTheme.colorScheme.onPrimary
                 )
             } else {
                 Text("Registrarse")
             }
         }
 
-        Spacer(modifier = Modifier.height(16.dp))
-
         if (mensaje.isNotEmpty()) {
+            Spacer(modifier = Modifier.height(16.dp))
             Text(
                 text = mensaje,
                 color = if (mensaje.contains("éxito", ignoreCase = true))
@@ -319,133 +340,312 @@ fun RegistroScreen(
     }
 }
 
+// ===== NUEVA PANTALLA PRINCIPAL =====
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MainScreen(onLogout: () -> Unit) {
+fun MainScreenNew(onLogout: () -> Unit) {
     val context = LocalContext.current
-    var usuarios by remember { mutableStateOf<List<Usuario>>(emptyList()) }
+    var selectedTab by remember { mutableStateOf(0) }
+    var searchText by remember { mutableStateOf("") }
     var categorias by remember { mutableStateOf<List<Categoria>>(emptyList()) }
 
     LaunchedEffect(Unit) {
-        val dbHelper = OrioRentDBHelper(context)
-        usuarios = dbHelper.obtenerTodosUsuarios()
-        categorias = dbHelper.obtenerCategorias()
-        dbHelper.close()
+        try {
+            val dbHelper = OrioRentDBHelper(context)
+            categorias = dbHelper.obtenerCategorias()
+            dbHelper.close()
+        } catch (e: Exception) {
+            Log.e("MAIN", "Error cargando datos: ${e.message}", e)
+        }
     }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(24.dp)
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = "Dashboard",
-                style = MaterialTheme.typography.headlineMedium
-            )
-
-            Button(onClick = onLogout) {
-                Text("Cerrar Sesión")
-            }
-        }
-
-        Spacer(modifier = Modifier.height(32.dp))
-
-        // Tarjetas de estadísticas
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            Card(
-                modifier = Modifier.weight(1f)
+    Scaffold(
+        topBar = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(Color.White)
+                    .padding(16.dp)
             ) {
-                Column(
-                    modifier = Modifier.padding(16.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Text(
-                        text = usuarios.size.toString(),
-                        style = MaterialTheme.typography.headlineLarge
-                    )
-                    Text("Usuarios registrados")
-                }
-            }
-
-            Card(
-                modifier = Modifier.weight(1f)
-            ) {
-                Column(
-                    modifier = Modifier.padding(16.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Text(
-                        text = categorias.size.toString(),
-                        style = MaterialTheme.typography.headlineLarge
-                    )
-                    Text("Categorías")
-                }
-            }
-        }
-
-        Spacer(modifier = Modifier.height(32.dp))
-
-        // Lista de usuarios
-        Text(
-            text = "Usuarios registrados:",
-            style = MaterialTheme.typography.titleMedium
-        )
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        LazyColumn {
-            items(usuarios) { usuario ->
-                Card(
+                // Barra de búsqueda
+                OutlinedTextField(
+                    value = searchText,
+                    onValueChange = { searchText = it },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(vertical = 4.dp)
+                        .height(56.dp),
+                    placeholder = { Text("Search") },
+                    leadingIcon = {
+                        Icon(
+                            Icons.Default.Search,
+                            contentDescription = "Buscar"
+                        )
+                    },
+                    trailingIcon = {
+                        Icon(
+                            Icons.Default.KeyboardArrowDown,
+                            contentDescription = "Voz"
+                        )
+                    },
+                    shape = RoundedCornerShape(28.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        unfocusedBorderColor = Color.LightGray,
+                        focusedBorderColor = Color(0xFF1976D2)
+                    )
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Botones de Favoritos y Categorías
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        Text(
-                            text = usuario.nombre,
-                            style = MaterialTheme.typography.titleSmall
+                    Button(
+                        onClick = { /* TODO */ },
+                        modifier = Modifier.weight(1f),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFF1976D2)
+                        ),
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.Favorite,
+                            contentDescription = null,
+                            modifier = Modifier.size(20.dp)
                         )
-                        Text(
-                            text = usuario.email,
-                            style = MaterialTheme.typography.bodySmall
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("FAVORITOS")
+                    }
+
+                    Button(
+                        onClick = { /* TODO */ },
+                        modifier = Modifier.weight(1f),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFF1976D2)
+                        ),
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.AccountBox,
+                            contentDescription = null,
+                            modifier = Modifier.size(20.dp)
                         )
-                        Text(
-                            text = "Registrado: ${usuario.fecha_registro}",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.outline
-                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("CATEGORÍAS")
                     }
                 }
             }
+        },
+        bottomBar = {
+            NavigationBar(
+                containerColor = Color.White,
+                tonalElevation = 8.dp
+            ) {
+                NavigationBarItem(
+                    icon = { Icon(Icons.Default.Home, contentDescription = "Inicio") },
+                    selected = selectedTab == 0,
+                    onClick = { selectedTab = 0 }
+                )
+                NavigationBarItem(
+                    icon = { Icon(Icons.Default.Email, contentDescription = "Mensajes") },
+                    selected = selectedTab == 1,
+                    onClick = { selectedTab = 1 }
+                )
+                NavigationBarItem(
+                    icon = { Icon(Icons.Default.Share, contentDescription = "Compartir") },
+                    selected = selectedTab == 2,
+                    onClick = { selectedTab = 2 }
+                )
+                NavigationBarItem(
+                    icon = { Icon(Icons.Default.Person, contentDescription = "Perfil") },
+                    selected = selectedTab == 3,
+                    onClick = { selectedTab = 3 }
+                )
+            }
+        }
+    ) { paddingValues ->
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
+                .background(Color(0xFFF5F5F5))
+        ) {
+            // Sección "¡Lo mas buscado!"
+            item {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text(
+                        text = "¡Lo mas buscado!",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    LazyRow(
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        item {
+                            CategoryCard(
+                                title = "Fiesta",
+                                color = Color(0xFF1976D2)
+                            )
+                        }
+                        item {
+                            CategoryCard(
+                                title = "Reunion",
+                                color = Color(0xFF1976D2)
+                            )
+                        }
+                    }
+                }
+            }
+
+            // Sección "Destacados"
+            item {
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "Destacados",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(horizontal = 16.dp)
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+            }
+
+            // Lista de locales destacados
+            items(2) { index ->
+                LocalCard(
+                    precio = if (index == 0) "85€/hora" else "350€/D",
+                    descripcion = if (index == 0) "Sala de fiestas privadas" else "Sala de reuniones",
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                )
+            }
+
+            // Sección "Lo mas reciente..."
+            item {
+                Spacer(modifier = Modifier.height(16.dp))
+                Text(
+                    text = "Lo mas reciente...",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(horizontal = 16.dp)
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+            }
+
+            // Lista de locales recientes
+            items(2) { index ->
+                LocalCard(
+                    precio = "85€/hora",
+                    descripcion = "Sala de fiestas privadas",
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                )
+            }
+
+            // Espaciado final
+            item {
+                Spacer(modifier = Modifier.height(16.dp))
+            }
+        }
+    }
+}
+
+@Composable
+fun CategoryCard(
+    title: String,
+    color: Color,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        modifier = modifier
+            .width(140.dp)
+            .height(80.dp)
+            .clickable { /* TODO */ },
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = color
+        )
+    ) {
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.BottomStart
+        ) {
+            // Aquí podrías agregar una imagen de fondo
+            // Para este ejemplo, solo mostramos el texto
+            Text(
+                text = title,
+                color = Color.White,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(12.dp)
+            )
+        }
+    }
+}
+
+@Composable
+fun LocalCard(
+    precio: String,
+    descripcion: String,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(280.dp)
+            .clickable { /* TODO */ },
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = Color.White
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Column {
+            // Imagen del local (placeholder con color)
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(180.dp)
+                    .background(Color(0xFF1976D2))
+                    .clip(RoundedCornerShape(topStart = 12.dp, topEnd = 12.dp)),
+                contentAlignment = Alignment.Center
+            ) {
+                // Aquí iría la imagen real del local
+                Icon(
+                    Icons.Default.Home,
+                    contentDescription = null,
+                    tint = Color.White,
+                    modifier = Modifier.size(64.dp)
+                )
+            }
+
+            // Información del local
+            Column(
+                modifier = Modifier.padding(16.dp)
+            ) {
+                Text(
+                    text = precio,
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.Black
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = descripcion,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = Color.Gray
+                )
+            }
         }
     }
 }
 
 @Preview(showBackground = true)
 @Composable
-fun LoginPreview() {
+fun MainScreenPreview() {
     MaterialTheme {
-        LoginScreen(
-            onLoginSuccess = {},
-            onRegistroClick = {}
-        )
+        MainScreenNew(onLogout = {})
     }
 }
 
-@Preview(showBackground = true)
-@Composable
-fun RegistroPreview() {
-    MaterialTheme {
-        RegistroScreen(
-            onRegistroSuccess = {},
-            onBackClick = {}
-        )
-    }
-}
