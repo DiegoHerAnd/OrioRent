@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "995629479983",
+    "project_id": "oriorentfirebase",
+    "storage_bucket": "oriorentfirebase.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:995629479983:android:b138e9b72c3509f6ffeeda",
+        "android_client_info": {
+          "package_name": "com.example.oriorent_interfaz"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAl0EcE2Qe9reT76grXiVJ7RBS9i3v2UOs"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
