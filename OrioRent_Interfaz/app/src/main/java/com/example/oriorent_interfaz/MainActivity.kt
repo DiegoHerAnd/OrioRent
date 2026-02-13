@@ -23,10 +23,15 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun OrioRentApp() {
     var pantallaActual by remember { mutableStateOf("login") }
+    var usuarioLogueadoEmail by remember { mutableStateOf("") }
+    var idLocalSeleccionado by remember { mutableIntStateOf(-1) }
 
     when (pantallaActual) {
         "login" -> LoginScreen(
-            onLoginSuccess = { pantallaActual = "main" },
+            onLoginSuccess = { email ->
+                usuarioLogueadoEmail = email
+                pantallaActual = "main"
+            },
             onRegistroClick = { pantallaActual = "registro" }
         )
         "registro" -> RegistroScreen(
@@ -34,7 +39,22 @@ fun OrioRentApp() {
             onBackClick = { pantallaActual = "login" }
         )
         "main" -> MainScreen(
-            onLogout = { pantallaActual = "login" }
+            onLogout = { pantallaActual = "login" },
+            onAddLocalClick = { pantallaActual = "form_local" },
+            onLocalClick = { id ->
+                idLocalSeleccionado = id
+                pantallaActual = "detalles_local"
+            }
+        )
+        "form_local" -> LocalFormScreen(
+            onBackClick = { pantallaActual = "main" },
+            onSuccess = { pantallaActual = "main" }
+        )
+        "detalles_local" -> LocalDetailsScreen(
+            idLocal = idLocalSeleccionado,
+            usuarioEmail = usuarioLogueadoEmail,
+            onBackClick = { pantallaActual = "main" },
+            onReservaSuccess = { pantallaActual = "main" }
         )
     }
 }

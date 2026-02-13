@@ -9,7 +9,7 @@ import java.text.SimpleDateFormat
 import java.util.*
 
 class OrioRentDBHelper(context: Context) :
-    SQLiteOpenHelper(context, "orioRent.db", null, 2) {
+    SQLiteOpenHelper(context, "orioRent.db", null, 3) { // Versión subida a 3
 
     companion object {
         const val TABLE_USUARIO = "USUARIO"
@@ -49,6 +49,7 @@ class OrioRentDBHelper(context: Context) :
             direccion TEXT,
             capacidad INTEGER,
             precio_base REAL,
+            tipo_precio TEXT, -- Nuevo campo
             id_propietario INTEGER,
             id_categoria INTEGER,
             FOREIGN KEY (id_propietario) REFERENCES USUARIO(id_usuario),
@@ -298,6 +299,98 @@ class OrioRentDBHelper(context: Context) :
         c.close()
         return lista
     }
+
+    fun insertarLocal(
+        nombre: String,
+        descripcion: String,
+        direccion: String,
+        capacidad: Int,
+        precioBase: Double,
+        tipoPrecio: String, // Nuevo campo
+        idPropietario: Int,
+        idCategoria: Int
+    ): Long {
+        return try {
+            val db = writableDatabase
+            val values = ContentValues().apply {
+                put("nombre", nombre)
+                put("descripcion", descripcion)
+                put("direccion", direccion)
+                put("capacidad", capacidad)
+                put("precio_base", precioBase)
+                put("tipo_precio", tipoPrecio)
+                put("id_propietario", idPropietario)
+                put("id_categoria", idCategoria)
+            }
+            db.insert(TABLE_LOCAL, null, values)
+        } catch (e: Exception) {
+            Log.e("DB", "Error insertando local: ${e.message}")
+            -1L
+        }
+    }
+
+    fun obtenerLocales(): List<Local> {
+        val lista = mutableListOf<Local>()
+        val db = readableDatabase
+        val c = db.rawQuery("SELECT * FROM $TABLE_LOCAL", null)
+
+        while (c.moveToNext()) {
+            lista.add(
+                Local(
+                    id_local = c.getInt(0),
+                    nombre = c.getString(1),
+                    descripcion = c.getString(2),
+                    direccion = c.getString(3),
+                    capacidad = c.getInt(4),
+                    precio_base = c.getDouble(5),
+                    tipo_precio = c.getString(6), // Nuevo campo
+                    id_propietario = c.getInt(7),
+                    id_categoria = c.getInt(8)
+                )
+            )
+        }
+        c.close()
+        return lista
+    }
+
+    fun obtenerLocalPorId(idLocal: Int): Local? {
+        val db = readableDatabase
+        val c = db.rawQuery("SELECT * FROM $TABLE_LOCAL WHERE id_local = ?", arrayOf(idLocal.toString()))
+        var local: Local? = null
+        if (c.moveToFirst()) {
+            local = Local(
+                id_local = c.getInt(0),
+                nombre = c.getString(1),
+                descripcion = c.getString(2),
+                direccion = c.getString(3),
+                capacidad = c.getInt(4),
+                precio_base = c.getDouble(5),
+                tipo_precio = c.getString(6), // Nuevo campo
+                id_propietario = c.getInt(7),
+                id_categoria = c.getInt(8)
+            )
+        }
+        c.close()
+        return local
+    }
+
+    fun insertarReserva(idUsuario: Int, idLocal: Int, fechaInicio: String, fechaFin: String, precioTotal: Double): Long {
+        return try {
+            val db = writableDatabase
+            val values = ContentValues().apply {
+                put("fecha_inicio", fechaInicio)
+                put("fecha_fin", fechaFin)
+                put("estado", "Confirmada")
+                put("precio_total", precioTotal)
+                put("id_usuario", idUsuario)
+                put("id_local", idLocal)
+            }
+            db.insert(TABLE_RESERVA, null, values)
+        } catch (e: Exception) {
+            Log.e("DB", "Error insertando reserva: ${e.message}")
+            -1L
+        }
+    }
 }
 
 // ===== MODELOS =====
@@ -313,4 +406,16 @@ data class Categoria(
     val id_categoria: Int,
     val nombre: String,
     val descripcion: String
+)
+
+data class Local(
+    val id_local: Int,
+    val nombre: String,
+    val descripcion: String,
+    val direccion: String,
+    val capacidad: Int,
+    val precio_base: Double,
+    val tipo_precio: String, // Nuevo campo
+    val id_propietario: Int,
+    val id_categoria: Int
 )

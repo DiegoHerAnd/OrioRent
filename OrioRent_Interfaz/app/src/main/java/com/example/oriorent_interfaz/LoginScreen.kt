@@ -18,7 +18,7 @@ import kotlinx.coroutines.launch
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LoginScreen(
-    onLoginSuccess: () -> Unit,
+    onLoginSuccess: (String) -> Unit,
     onRegistroClick: () -> Unit
 ) {
     val context = LocalContext.current
@@ -92,7 +92,7 @@ fun LoginScreen(
                         if (loginExitoso) {
                             mensaje = "¡Login exitoso!"
                             Log.d("LOGIN", "Login EXITOSO - Navegando a main")
-                            onLoginSuccess()
+                            onLoginSuccess(email)
                         } else {
                             mensaje = "Email o contraseña incorrectos"
                             Log.d("LOGIN", "Login FALLIDO")
