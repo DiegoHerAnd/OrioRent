@@ -44,7 +44,8 @@ fun OrioRentApp() {
             onLocalClick = { id ->
                 idLocalSeleccionado = id
                 pantallaActual = "detalles_local"
-            }
+            },
+            onPostalServiceClick = { pantallaActual = "postal_service" }
         )
         "form_local" -> LocalFormScreen(
             onBackClick = { pantallaActual = "main" },
@@ -55,6 +56,9 @@ fun OrioRentApp() {
             usuarioEmail = usuarioLogueadoEmail,
             onBackClick = { pantallaActual = "main" },
             onReservaSuccess = { pantallaActual = "main" }
+        )
+        "postal_service" -> PostalService(
+            onBack = { pantallaActual = "main" }
         )
     }
 }

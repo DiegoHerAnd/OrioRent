@@ -25,7 +25,8 @@ import androidx.compose.ui.unit.dp
 fun MainScreen(
     onLogout: () -> Unit,
     onAddLocalClick: () -> Unit,
-    onLocalClick: (Int) -> Unit
+    onLocalClick: (Int) -> Unit,
+    onPostalServiceClick: () -> Unit
 ) {
     var selectedTab by remember { mutableStateOf(0) }
     var searchText by remember { mutableStateOf("") }
@@ -148,7 +149,10 @@ fun MainScreen(
                 NavigationBarItem(
                     icon = { Icon(Icons.Default.Email, contentDescription = "Mensajes") },
                     selected = selectedTab == 1,
-                    onClick = { selectedTab = 1 }
+                    onClick = {
+                        selectedTab = 1
+                        onPostalServiceClick()
+                    }
                 )
                 NavigationBarItem(
                     icon = { Icon(Icons.Default.Add, contentDescription = "Añadir") },
@@ -237,10 +241,14 @@ fun MainScreen(
             // Espaciado final y botón de cerrar sesión
             item {
                 Spacer(modifier = Modifier.height(16.dp))
-                Button(
+                OutlinedButton(
                     onClick = onLogout,
-                    modifier = Modifier.fillMaxWidth().padding(16.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color.Red)
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        contentColor = Color(0xFF1976D2)
+                    )
                 ) {
                     Text("Cerrar Sesión")
                 }

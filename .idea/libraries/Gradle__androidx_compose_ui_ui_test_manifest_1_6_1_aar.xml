@@ -1,9 +1,9 @@
 <component name="libraryTable">
   <library name="Gradle: androidx.compose.ui:ui-test-manifest:1.6.1@aar" external-system-id="GRADLE">
     <CLASSES>
-      <root url="file://$USER_HOME$/.gradle/caches/9.1.0/transforms/02d451ba53e6c09bcba867dfc08b7382/workspace/transformed/ui-test-manifest-1.6.1/res" />
-      <root url="file://$USER_HOME$/.gradle/caches/9.1.0/transforms/02d451ba53e6c09bcba867dfc08b7382/workspace/transformed/ui-test-manifest-1.6.1/AndroidManifest.xml" />
-      <root url="jar://$USER_HOME$/.gradle/caches/9.1.0/transforms/02d451ba53e6c09bcba867dfc08b7382/workspace/transformed/ui-test-manifest-1.6.1/jars/classes.jar!/" />
+      <root url="jar://$USER_HOME$/.gradle/caches/9.1.0/transforms/2dfa20c487c8b27ced1c866841c7060b/workspace/transformed/ui-test-manifest-1.6.1/jars/classes.jar!/" />
+      <root url="file://$USER_HOME$/.gradle/caches/9.1.0/transforms/2dfa20c487c8b27ced1c866841c7060b/workspace/transformed/ui-test-manifest-1.6.1/AndroidManifest.xml" />
+      <root url="file://$USER_HOME$/.gradle/caches/9.1.0/transforms/2dfa20c487c8b27ced1c866841c7060b/workspace/transformed/ui-test-manifest-1.6.1/res" />
     </CLASSES>
     <JAVADOC />
     <SOURCES>
