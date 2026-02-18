@@ -1,17 +1,14 @@
 package com.example.oriorent_interfaz
 
 import android.os.Bundle
-import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.material3.*
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.*
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        Log.d("MainActivity", "App iniciada")
-
         setContent {
             MaterialTheme {
                 OrioRentApp()
@@ -36,17 +33,22 @@ fun OrioRentApp() {
         )
         "registro" -> RegistroScreen(
             onRegistroSuccess = { pantallaActual = "login" },
-            onBackClick = { pantallaActual = "login" }
+            onBackClick = { pantallaActual = "login" },
+            onTermsClick = { pantallaActual = "terms" } // Este es el que faltaba
         )
         "main" -> MainScreen(
+            userEmail = usuarioLogueadoEmail,
             onLogout = { pantallaActual = "login" },
             onAddLocalClick = { pantallaActual = "form_local" },
             onLocalClick = { id ->
                 idLocalSeleccionado = id
                 pantallaActual = "detalles_local"
-            }
+            },
+            onProfileClick = { pantallaActual = "perfil" },
+            onFavoritesClick = { pantallaActual = "favoritos" }
         )
         "form_local" -> LocalFormScreen(
+            usuarioEmail = usuarioLogueadoEmail,
             onBackClick = { pantallaActual = "main" },
             onSuccess = { pantallaActual = "main" }
         )
@@ -55,6 +57,22 @@ fun OrioRentApp() {
             usuarioEmail = usuarioLogueadoEmail,
             onBackClick = { pantallaActual = "main" },
             onReservaSuccess = { pantallaActual = "main" }
+        )
+        "perfil" -> ProfileScreen(
+            usuarioEmail = usuarioLogueadoEmail,
+            onBackClick = { pantallaActual = "main" },
+            onLogoutClick = { pantallaActual = "login" }
+        )
+        "favoritos" -> FavoritesScreen(
+            userEmail = usuarioLogueadoEmail,
+            onBackClick = { pantallaActual = "main" },
+            onLocalClick = { id ->
+                idLocalSeleccionado = id
+                pantallaActual = "detalles_local"
+            }
+        )
+        "terms" -> TermsAndConditionsScreen(
+            onBackClick = { pantallaActual = "registro" }
         )
     }
 }

@@ -1,22 +1,29 @@
 package com.example.oriorent_interfaz
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.FavoriteBorder
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -35,111 +42,44 @@ fun LocalDetailsScreen(
 
     val esPropietario = local?.id_propietario == usuario?.id_usuario
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text(local?.nombre ?: "Detalles del Local") },
-                navigationIcon = {
-                    IconButton(onClick = onBackClick) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Volver")
-                    }
-                }
-            )
-        }
-    ) { paddingValues ->
-        if (local == null) {
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text("Cargando...")
+    if (local == null) {
+        Scaffold {
+            Box(modifier = Modifier.fillMaxSize().padding(it), contentAlignment = Alignment.Center) {
+                Text("Local no encontrado o cargando...")
             }
-        } else {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(paddingValues)
-                    .verticalScroll(rememberScrollState())
-                    .padding(16.dp)
+        }
+        return
+    }
+
+    Scaffold(
+        bottomBar = {
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                shadowElevation = 8.dp
             ) {
-                // Imagen Placeholder
-                Box(
+                Row(
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .height(200.dp)
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(Color(0xFF1976D2)),
-                    contentAlignment = Alignment.Center
+                        .padding(horizontal = 16.dp, vertical = 12.dp)
+                        .fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(
-                        Icons.Default.Home,
-                        contentDescription = null,
-                        tint = Color.White,
-                        modifier = Modifier.size(80.dp)
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                Text(
-                    text = local.nombre,
-                    style = MaterialTheme.typography.headlineMedium,
-                    fontWeight = FontWeight.Bold
-                )
-
-                Text(
-                    text = "${local.precio_base}€ / ${local.tipo_precio}",
-                    style = MaterialTheme.typography.titleLarge,
-                    color = Color(0xFF1976D2),
-                    fontWeight = FontWeight.Bold
-                )
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                Text(
-                    text = local.direccion,
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = Color.Gray
-                )
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                Text(
-                    text = "Descripción",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
-                )
-                Text(
-                    text = local.descripcion,
-                    style = MaterialTheme.typography.bodyMedium
-                )
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                Text(
-                    text = "Capacidad: ${local.capacidad} personas",
-                    style = MaterialTheme.typography.bodyMedium
-                )
-
-                Spacer(modifier = Modifier.weight(1f))
-                Spacer(modifier = Modifier.height(24.dp))
-
-                if (esPropietario) {
-                    Surface(
-                        color = Color.LightGray,
-                        shape = RoundedCornerShape(8.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
+                    Column {
                         Text(
-                            text = "Eres el propietario de este local",
-                            modifier = Modifier.padding(16.dp),
-                            color = Color.DarkGray,
-                            style = MaterialTheme.typography.bodyMedium
+                            text = "${local.precio_base}€",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 20.sp
+                        )
+                        Text(
+                            text = "/ ${local.tipo_precio}",
+                            fontSize = 14.sp,
+                            color = Color.Gray
                         )
                     }
-                } else {
                     Button(
                         onClick = {
                             val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
                             val hoy = sdf.format(Date())
-                            
                             dbHelper.insertarReserva(
                                 idUsuario = usuario?.id_usuario ?: 0,
                                 idLocal = local.id_local,
@@ -149,13 +89,135 @@ fun LocalDetailsScreen(
                             )
                             onReservaSuccess()
                         },
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1976D2))
+                        enabled = !esPropietario,
+                        shape = RoundedCornerShape(8.dp)
                     ) {
-                        Text("ALQUILAR AHORA")
+                        Text(if (esPropietario) "Eres el dueño" else "Reservar")
                     }
                 }
             }
         }
+    ) { paddingValues ->
+        Box(modifier = Modifier.fillMaxSize().padding(paddingValues)) {
+            val scrollState = rememberScrollState()
+
+            Column(modifier = Modifier.verticalScroll(scrollState)) {
+                // --- Image Header ---
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(300.dp)
+                ) {
+                    Image(
+                        painter = painterResource(id = R.drawable.fiesta),
+                        contentDescription = "Imagen del local",
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                }
+
+                // --- Content Card ---
+                Surface(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .offset(y = (-20).dp), // Overlap effect
+                    shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp),
+                    color = MaterialTheme.colorScheme.background
+                ) {
+                    Column(modifier = Modifier.padding(24.dp)) {
+                        Text(
+                            text = local.nombre,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 28.sp
+                        )
+                        Text(
+                            text = local.direccion,
+                            color = Color.Gray,
+                            fontSize = 16.sp
+                        )
+
+                        Divider(modifier = Modifier.padding(vertical = 16.dp))
+
+                        Text(
+                            text = "Información",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 20.sp
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        InfoRow(icon = Icons.Default.Person, text = "${local.capacidad} personas")
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        Text(
+                            text = "Descripción",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 20.sp
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = local.descripcion,
+                            fontSize = 16.sp,
+                            lineHeight = 24.sp
+                        )
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        Text(
+                            text = "Ubicación",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 20.sp
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        // Map Placeholder
+                        Text(
+                            text = local.descripcion,
+                            fontSize = 16.sp,
+                            lineHeight = 24.sp
+                        )
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(150.dp)
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(Color.LightGray),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text("Map placeholder", color = Color.DarkGray)
+                        }
+                    }
+                }
+            }
+
+            // --- Floating Buttons ---
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 16.dp, start = 16.dp, end = 16.dp),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                IconButton(
+                    onClick = onBackClick,
+                    modifier = Modifier.background(Color.White.copy(alpha = 0.7f), CircleShape)
+                ) {
+                    Icon(Icons.Default.ArrowBack, contentDescription = "Volver")
+                }
+                IconButton(
+                    onClick = { /* TODO: Favorite action */ },
+                    modifier = Modifier.background(Color.White.copy(alpha = 0.7f), CircleShape)
+                ) {
+                    Icon(Icons.Default.FavoriteBorder, contentDescription = "Favorito")
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun InfoRow(icon: androidx.compose.ui.graphics.vector.ImageVector, text: String) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+        Spacer(modifier = Modifier.width(8.dp))
+        Text(text, fontSize = 16.sp)
     }
 }
