@@ -3,6 +3,10 @@
   <component name="ProjectModuleManager">
     <modules>
       <module fileurl="file://$PROJECT_DIR$/.idea/OrioRent.iml" filepath="$PROJECT_DIR$/.idea/OrioRent.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/app/OrioRent_Interfaz.app.iml" filepath="$PROJECT_DIR$/.idea/modules/app/OrioRent_Interfaz.app.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/app/OrioRent_Interfaz.app.androidTest.iml" filepath="$PROJECT_DIR$/.idea/modules/app/OrioRent_Interfaz.app.androidTest.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/app/OrioRent_Interfaz.app.main.iml" filepath="$PROJECT_DIR$/.idea/modules/app/OrioRent_Interfaz.app.main.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/app/OrioRent_Interfaz.app.unitTest.iml" filepath="$PROJECT_DIR$/.idea/modules/app/OrioRent_Interfaz.app.unitTest.iml" />
     </modules>
   </component>
 </project>

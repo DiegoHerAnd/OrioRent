@@ -26,7 +26,8 @@ fun MainScreen(
     onLogout: () -> Unit,
     onAddLocalClick: () -> Unit,
     onLocalClick: (Int) -> Unit,
-    onPostalServiceClick: () -> Unit
+    onPostalServiceClick: () -> Unit,
+    onFavouritesClick: () -> Unit
 ) {
     var selectedTab by remember { mutableStateOf(0) }
     var searchText by remember { mutableStateOf("") }
@@ -97,9 +98,7 @@ fun MainScreen(
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     Button(
-                        onClick = {
-                            Log.d("MainScreen", "Favoritos clicked")
-                        },
+                        onClick = onFavouritesClick,
                         modifier = Modifier.weight(1f),
                         colors = ButtonDefaults.buttonColors(
                             containerColor = Color(0xFF1976D2)
@@ -241,14 +240,10 @@ fun MainScreen(
             // Espaciado final y botón de cerrar sesión
             item {
                 Spacer(modifier = Modifier.height(16.dp))
-                OutlinedButton(
+                Button(
                     onClick = onLogout,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp),
-                    colors = ButtonDefaults.outlinedButtonColors(
-                        contentColor = Color(0xFF1976D2)
-                    )
+                    modifier = Modifier.fillMaxWidth().padding(16.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color.Red)
                 ) {
                     Text("Cerrar Sesión")
                 }

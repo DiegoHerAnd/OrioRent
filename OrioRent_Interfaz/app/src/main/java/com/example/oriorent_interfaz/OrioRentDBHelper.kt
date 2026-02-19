@@ -9,7 +9,7 @@ import java.text.SimpleDateFormat
 import java.util.*
 
 class OrioRentDBHelper(context: Context) :
-    SQLiteOpenHelper(context, "orioRent.db", null, 3) { // Versión subida a 3
+    SQLiteOpenHelper(context, "orioRent.db", null, 3) {
 
     companion object {
         const val TABLE_USUARIO = "USUARIO"
@@ -49,7 +49,7 @@ class OrioRentDBHelper(context: Context) :
             direccion TEXT,
             capacidad INTEGER,
             precio_base REAL,
-            tipo_precio TEXT, -- Nuevo campo
+            tipo_precio TEXT,
             id_propietario INTEGER,
             id_categoria INTEGER,
             FOREIGN KEY (id_propietario) REFERENCES USUARIO(id_usuario),
@@ -227,6 +227,7 @@ class OrioRentDBHelper(context: Context) :
         cursor.close()
         return existe
     }
+
     fun obtenerUsuarioPorEmail(email: String): Usuario? {
         return try {
             val db = readableDatabase
@@ -247,39 +248,13 @@ class OrioRentDBHelper(context: Context) :
                     contrasena = cursor.getString(3),
                     fecha_registro = cursor.getString(4)
                 )
-                Log.d("DB", "Usuario encontrado: ${usuario.email}")
-            } else {
-                Log.d("DB", "Usuario NO encontrado con email: $emailNormalizado")
             }
-
             cursor.close()
             usuario
 
         } catch (e: Exception) {
-            Log.e("DB", "Error obteniendo usuario por email: ${e.message}", e)
             null
         }
-    }
-
-
-    fun obtenerTodosUsuarios(): List<Usuario> {
-        val lista = mutableListOf<Usuario>()
-        val db = readableDatabase
-        val c = db.rawQuery("SELECT * FROM $TABLE_USUARIO", null)
-
-        while (c.moveToNext()) {
-            lista.add(
-                Usuario(
-                    c.getInt(0),
-                    c.getString(1),
-                    c.getString(2),
-                    c.getString(3),
-                    c.getString(4)
-                )
-            )
-        }
-        c.close()
-        return lista
     }
 
     fun obtenerCategorias(): List<Categoria> {
@@ -306,7 +281,7 @@ class OrioRentDBHelper(context: Context) :
         direccion: String,
         capacidad: Int,
         precioBase: Double,
-        tipoPrecio: String, // Nuevo campo
+        tipoPrecio: String,
         idPropietario: Int,
         idCategoria: Int
     ): Long {
@@ -343,7 +318,7 @@ class OrioRentDBHelper(context: Context) :
                     direccion = c.getString(3),
                     capacidad = c.getInt(4),
                     precio_base = c.getDouble(5),
-                    tipo_precio = c.getString(6), // Nuevo campo
+                    tipo_precio = c.getString(6),
                     id_propietario = c.getInt(7),
                     id_categoria = c.getInt(8)
                 )
@@ -365,7 +340,7 @@ class OrioRentDBHelper(context: Context) :
                 direccion = c.getString(3),
                 capacidad = c.getInt(4),
                 precio_base = c.getDouble(5),
-                tipo_precio = c.getString(6), // Nuevo campo
+                tipo_precio = c.getString(6),
                 id_propietario = c.getInt(7),
                 id_categoria = c.getInt(8)
             )
@@ -391,6 +366,39 @@ class OrioRentDBHelper(context: Context) :
             -1L
         }
     }
+
+    // Métodos para Favoritos
+    fun toggleFavorito(idUsuario: Int, idLocal: Int): Boolean {
+        val db = writableDatabase
+        val cursor = db.rawQuery(
+            "SELECT * FROM $TABLE_FAVORITO WHERE id_usuario = ? AND id_local = ?",
+            arrayOf(idUsuario.toString(), idLocal.toString())
+        )
+        
+        val esFavorito = cursor.count > 0
+        if (esFavorito) {
+            db.delete(TABLE_FAVORITO, "id_usuario = ? AND id_local = ?", arrayOf(idUsuario.toString(), idLocal.toString()))
+        } else {
+            val values = ContentValues().apply {
+                put("id_usuario", idUsuario)
+                put("id_local", idLocal)
+            }
+            db.insert(TABLE_FAVORITO, null, values)
+        }
+        cursor.close()
+        return !esFavorito
+    }
+
+    fun esFavorito(idUsuario: Int, idLocal: Int): Boolean {
+        val db = readableDatabase
+        val cursor = db.rawQuery(
+            "SELECT * FROM $TABLE_FAVORITO WHERE id_usuario = ? AND id_local = ?",
+            arrayOf(idUsuario.toString(), idLocal.toString())
+        )
+        val existe = cursor.count > 0
+        cursor.close()
+        return existe
+    }
 }
 
 // ===== MODELOS =====
@@ -415,7 +423,7 @@ data class Local(
     val direccion: String,
     val capacidad: Int,
     val precio_base: Double,
-    val tipo_precio: String, // Nuevo campo
+    val tipo_precio: String,
     val id_propietario: Int,
     val id_categoria: Int
 )
