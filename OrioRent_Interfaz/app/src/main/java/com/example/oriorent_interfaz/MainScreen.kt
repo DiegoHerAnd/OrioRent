@@ -27,7 +27,8 @@ fun MainScreen(
     onAddLocalClick: () -> Unit,
     onLocalClick: (Int) -> Unit,
     onPostalServiceClick: () -> Unit,
-    onFavouritesClick: () -> Unit
+    onFavouritesClick: () -> Unit,
+    onProfileScreen: () -> Unit
 ) {
     var selectedTab by remember { mutableStateOf(0) }
     var searchText by remember { mutableStateOf("") }
@@ -164,7 +165,10 @@ fun MainScreen(
                 NavigationBarItem(
                     icon = { Icon(Icons.Default.Person, contentDescription = "Perfil") },
                     selected = selectedTab == 3,
-                    onClick = { selectedTab = 3 }
+                    onClick = {
+                        selectedTab = 3
+                        onProfileScreen()
+                    }
                 )
             }
         }

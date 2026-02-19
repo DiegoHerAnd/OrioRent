@@ -47,7 +47,8 @@ fun OrioRentApp() {
                 pantallaActual = "detalles_local"
             },
             onPostalServiceClick = { pantallaActual = "postal_service" },
-            onFavouritesClick = { pantallaActual = "favourites" }
+            onFavouritesClick = { pantallaActual = "favourites" },
+            onProfileScreen = { pantallaActual = "profile" }
         )
         "form_local" -> LocalFormScreen(
             usuarioEmail = usuarioLogueadoEmail,
@@ -66,6 +67,11 @@ fun OrioRentApp() {
         "favourites" -> FavouritesScreen(
             usuarioEmail = usuarioLogueadoEmail,
             onBackClick = { pantallaActual = "main" }
+        )
+        "profile" -> ProfileScreen(
+            usuarioEmail = usuarioLogueadoEmail,
+            onBackClick = { pantallaActual = "main" },
+            onLogoutClick = { pantallaActual = "login" }
         )
         "terms" -> TermsScreen(
             onBackClick = { pantallaActual = "registro" }
