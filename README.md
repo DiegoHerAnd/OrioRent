@@ -8,6 +8,9 @@
 
 El proyecto **OrioRent** está organizado en dos carpetas principales, cada una con un propósito específico:
 
+# Video Demostración:
+[![Ver Demostración](https://img.youtube.com/vi/6OUtWggupp4/maxresdefault.jpg)](https://youtu.be/M8AZCJxDW4E)
+
 ### 1. OrioRentSQL
 
 Esta carpeta contiene todos los scripts y archivos relacionados con la base de datos. Aquí se encuentra:
