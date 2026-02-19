@@ -31,6 +31,10 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -50,9 +54,24 @@ data class Conversation(
     val date: String,
     @DrawableRes val propertyImage: Int
 )
-
+//Filtro fecha
+fun parseFechaSimple(fecha: String): Int {
+    val meses = listOf("ene", "feb", "mar", "abr", "may", "jun",
+        "jul", "ago", "sep", "oct", "nov", "dic")
+    val partes = fecha.trim().split(" ")
+    val dia = partes[0].toIntOrNull() ?: 0
+    val mes = meses.indexOf(partes.getOrNull(1)?.lowercase() ?: "")
+    return mes * 100 + dia // Número comparable
+}
 // Sample data based on the image provided
 val sampleConversations = listOf(
+    Conversation(
+        sender = "Juan García",
+        propertyName = "Sala de reuniones",
+        lastMessage = "Hola, ¿qué tal?",
+        date = "08 ene",
+        propertyImage = R.drawable.ic_launcher_background // TODO: Replace with your actual drawable
+    ),
     Conversation(
         sender = "Luis Pérez",
         propertyName = "Sala de fiestas privada",
@@ -69,8 +88,20 @@ val sampleConversations = listOf(
     )
 )
 
+
+
 @Composable
 fun PostalService(onBack: () -> Unit) {
+    //Valores filtro
+    var ordenAscendente by remember { mutableStateOf(false) }
+
+    val conversacionesOrdenadas = remember(ordenAscendente) {
+        if (ordenAscendente)
+            sampleConversations.sortedBy { parseFechaSimple(it.date) }
+        else
+            sampleConversations.sortedByDescending { parseFechaSimple(it.date) }
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -88,8 +119,10 @@ fun PostalService(onBack: () -> Unit) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Atrás")
                     }
                 },
+
+                //Icono filtro
                 actions = {
-                    IconButton(onClick = { /* TODO: Filter action */ }) {
+                    IconButton(onClick = { ordenAscendente = !ordenAscendente}) {
                         Icon(Icons.AutoMirrored.Filled.List, contentDescription = "Filtrar")
                     }
                 },
@@ -106,7 +139,7 @@ fun PostalService(onBack: () -> Unit) {
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             item { Spacer(modifier = Modifier.height(8.dp)) }
-            items(sampleConversations) { conversation ->
+            items(conversacionesOrdenadas) { conversation ->
                 ConversationItem(conversation = conversation)
             }
         }
