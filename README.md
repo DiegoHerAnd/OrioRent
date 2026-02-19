@@ -9,7 +9,7 @@
 El proyecto **OrioRent** está organizado en dos carpetas principales, cada una con un propósito específico:
 
 # Video Demostración:
-[![Ver Demostración](https://img.youtube.com/vi/6OUtWggupp4/maxresdefault.jpg)](https://youtu.be/M8AZCJxDW4E)
+[![Ver Demostración](https://i.ytimg.com/vi/M8AZCJxDW4E/maxresdefault.jpg)
 
 ### 1. OrioRentSQL
 
