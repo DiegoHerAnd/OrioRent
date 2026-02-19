@@ -367,6 +367,25 @@ class OrioRentDBHelper(context: Context) :
         }
     }
 
+    fun obtenerReservasUsuario(idUsuario: Int): List<Reserva> {
+        val lista = mutableListOf<Reserva>()
+        val db = readableDatabase
+        val c = db.rawQuery("SELECT * FROM $TABLE_RESERVA WHERE id_usuario = ?", arrayOf(idUsuario.toString()))
+        while (c.moveToNext()) {
+            lista.add(Reserva(
+                id_reserva = c.getInt(0),
+                fecha_inicio = c.getString(1),
+                fecha_fin = c.getString(2),
+                estado = c.getString(3),
+                precio_total = c.getDouble(4),
+                id_usuario = c.getInt(5),
+                id_local = c.getInt(6)
+            ))
+        }
+        c.close()
+        return lista
+    }
+
     // Métodos para Favoritos
     fun toggleFavorito(idUsuario: Int, idLocal: Int): Boolean {
         val db = writableDatabase
@@ -426,4 +445,14 @@ data class Local(
     val tipo_precio: String,
     val id_propietario: Int,
     val id_categoria: Int
+)
+
+data class Reserva(
+    val id_reserva: Int,
+    val fecha_inicio: String,
+    val fecha_fin: String,
+    val estado: String,
+    val precio_total: Double,
+    val id_usuario: Int,
+    val id_local: Int
 )

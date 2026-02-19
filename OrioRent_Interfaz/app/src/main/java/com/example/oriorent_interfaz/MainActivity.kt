@@ -40,6 +40,7 @@ fun OrioRentApp() {
             onTermsClick = { pantallaActual = "terms" }
         )
         "main" -> MainScreen(
+            usuarioEmail = usuarioLogueadoEmail,
             onLogout = { pantallaActual = "login" },
             onAddLocalClick = { pantallaActual = "form_local" },
             onLocalClick = { id ->
@@ -66,15 +67,37 @@ fun OrioRentApp() {
         )
         "favourites" -> FavouritesScreen(
             usuarioEmail = usuarioLogueadoEmail,
-            onBackClick = { pantallaActual = "main" }
+            onBackClick = { pantallaActual = "main" },
+            onLocalClick = { id ->
+                idLocalSeleccionado = id
+                pantallaActual = "detalles_local"
+            }
         )
         "profile" -> ProfileScreen(
             usuarioEmail = usuarioLogueadoEmail,
-            onBackClick = { pantallaActual = "main" },
-            onLogoutClick = { pantallaActual = "login" }
+            onLogoutClick = { pantallaActual = "login" },
+            onMainClick = { pantallaActual = "main" },
+            onPostalServiceClick = { pantallaActual = "postal_service" },
+            onAddLocalClick = { pantallaActual = "form_local" },
+            onFavouritesClick = { pantallaActual = "favourites" },
+            onPublicProfileClick = { pantallaActual = "public_profile" },
+            onMyBookingsClick = { pantallaActual = "my_bookings" }
+        )
+        "public_profile" -> UserPublicProfileScreen(
+            usuarioEmail = usuarioLogueadoEmail,
+            onBackClick = { pantallaActual = "profile" },
+            onAddLocalClick = { pantallaActual = "form_local" },
+            onLocalClick = { id ->
+                idLocalSeleccionado = id
+                pantallaActual = "detalles_local"
+            }
         )
         "terms" -> TermsScreen(
             onBackClick = { pantallaActual = "registro" }
+        )
+        "my_bookings" -> MyBookingsScreen(
+            usuarioEmail = usuarioLogueadoEmail,
+            onBackClick = { pantallaActual = "profile" }
         )
     }
 }

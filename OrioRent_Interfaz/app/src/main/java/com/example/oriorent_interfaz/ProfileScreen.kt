@@ -1,148 +1,205 @@
 package com.example.oriorent_interfaz
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Person
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.DividerDefaults
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProfileScreen(
     usuarioEmail: String,
-    onBackClick: () -> Unit,
-    onLogoutClick: () -> Unit
+    onLogoutClick: () -> Unit,
+    onMainClick: () -> Unit,
+    onPostalServiceClick: () -> Unit,
+    onAddLocalClick: () -> Unit,
+    onFavouritesClick: () -> Unit,
+    onPublicProfileClick: () -> Unit,
+    onMyBookingsClick: () -> Unit
 ) {
     val context = LocalContext.current
     val dbHelper = remember { OrioRentDBHelper(context) }
-    val usuario = remember { dbHelper.obtenerUsuarioPorEmail(usuarioEmail) }
+    val usuario = remember(usuarioEmail) { dbHelper.obtenerUsuarioPorEmail(usuarioEmail) }
 
     Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Mi Perfil") },
-                navigationIcon = {
-                    IconButton(onClick = onBackClick) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Volver")
-                    }
-                }
-            )
+        bottomBar = {
+            NavigationBar(
+                containerColor = Color(0xFF1A4A7A)
+            ) {
+                NavigationBarItem(
+                    icon = { Icon(Icons.Default.Home, contentDescription = null, tint = Color.White) },
+                    label = { Text("Inicio", color = Color.White) },
+                    selected = false,
+                    onClick = onMainClick
+                )
+                NavigationBarItem(
+                    icon = { Icon(Icons.Default.Email, contentDescription = null, tint = Color.White) },
+                    label = { Text("Buzón", color = Color.White) },
+                    selected = false,
+                    onClick = onPostalServiceClick
+                )
+                NavigationBarItem(
+                    icon = { Icon(Icons.Default.Add, contentDescription = null, tint = Color.White) },
+                    label = { Text("Subir", color = Color.White) },
+                    selected = false,
+                    onClick = onAddLocalClick
+                )
+                NavigationBarItem(
+                    icon = { Icon(Icons.Default.Person, contentDescription = null, tint = Color.White) },
+                    label = { Text("Tú", color = Color.White) },
+                    selected = true,
+                    onClick = { }
+                )
+            }
         }
     ) { paddingValues ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
-                .padding(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+                .background(Color.White)
+                .padding(24.dp)
         ) {
-            // Avatar / Imagen de perfil
-            Box(
+            // Foto y Nombre (Clickeable para ver perfil público)
+            Row(
                 modifier = Modifier
-                    .size(120.dp)
-                    .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.primaryContainer),
-                contentAlignment = Alignment.Center
+                    .fillMaxWidth()
+                    .clickable { onPublicProfileClick() }
+                    .padding(vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
+                Box(
+                    modifier = Modifier
+                        .size(80.dp)
+                        .clip(CircleShape)
+                        .background(Color(0xFFE9ECEF)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Person,
+                        contentDescription = null,
+                        modifier = Modifier.size(50.dp),
+                        tint = Color.Gray
+                    )
+                }
+                
+                Spacer(modifier = Modifier.width(16.dp))
+                
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = usuario?.nombre ?: "Usuario",
+                        fontSize = 22.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.Black
+                    )
+                }
+                
                 Icon(
-                    imageVector = Icons.Default.Person,
+                    imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
                     contentDescription = null,
-                    modifier = Modifier.size(80.dp),
-                    tint = MaterialTheme.colorScheme.onPrimaryContainer
+                    tint = Color.Gray
                 )
+            }
+
+            Spacer(modifier = Modifier.height(32.dp))
+
+            // Secciones
+            ProfileSection(title = "Transacciones") {
+                ProfileItem(icon = Icons.Default.List, label = "Alquileres", onClick = onMyBookingsClick)
+                ProfileItem(icon = Icons.Default.AccountBox, label = "Metodo de pago", onClick = { /* Pagos */ })
             }
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            if (usuario != null) {
-                Text(
-                    text = usuario.nombre,
-                    style = MaterialTheme.typography.headlineMedium,
-                    fontWeight = FontWeight.Bold
-                )
-                Text(
-                    text = usuario.email,
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = Color.Gray
-                )
+            ProfileSection(title = "Cuenta") {
+                ProfileItem(icon = Icons.Default.FavoriteBorder, label = "Favoritos", onClick = onFavouritesClick)
+                ProfileItem(icon = Icons.Default.Settings, label = "Ajustes", onClick = { /* Ajustes */ })
+            }
 
-                Spacer(modifier = Modifier.height(32.dp))
+            Spacer(modifier = Modifier.height(24.dp))
 
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color.White),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-                ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        ProfileInfoItem(label = "Nombre", value = usuario.nombre)
-                        HorizontalDivider(
-                            modifier = Modifier.padding(vertical = 8.dp),
-                            thickness = DividerDefaults.Thickness,
-                            color = DividerDefaults.color
-                        )
-                        ProfileInfoItem(label = "Email", value = usuario.email)
-                        HorizontalDivider(
-                            modifier = Modifier.padding(vertical = 8.dp),
-                            thickness = DividerDefaults.Thickness,
-                            color = DividerDefaults.color
-                        )
-                        ProfileInfoItem(label = "Fecha de Registro", value = usuario.fecha_registro)
-                    }
-                }
-            } else {
-                Text("No se pudo cargar la información del usuario")
+            ProfileSection(title = "Soporte") {
+                ProfileItem(icon = Icons.Default.Info, label = "¿Necesitas ayuda?", onClick = { /* Ayuda */ })
             }
 
             Spacer(modifier = Modifier.weight(1f))
 
-            Button(
+            // Botón Cerrar Sesión
+            TextButton(
                 onClick = onLogoutClick,
-                modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
-                shape = RoundedCornerShape(8.dp)
+                modifier = Modifier.align(Alignment.CenterHorizontally)
             ) {
-                Text("CERRAR SESIÓN", color = Color.White)
+                Text(
+                    text = "Cerrar Sesion",
+                    color = Color.Gray,
+                    textDecoration = TextDecoration.Underline,
+                    fontSize = 16.sp
+                )
             }
         }
     }
 }
 
 @Composable
-fun ProfileInfoItem(label: String, value: String) {
+fun ProfileSection(title: String, content: @Composable ColumnScope.() -> Unit) {
     Column {
-        Text(text = label, style = MaterialTheme.typography.labelMedium, color = Color.Gray)
-        Text(text = value, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
+        Text(
+            text = title,
+            fontSize = 18.sp,
+            fontWeight = FontWeight.Bold,
+            color = Color.Black,
+            modifier = Modifier.padding(bottom = 12.dp)
+        )
+        content()
+    }
+}
+
+@Composable
+fun ProfileItem(icon: ImageVector, label: String, onClick: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick() }
+            .padding(vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            modifier = Modifier.size(28.dp),
+            tint = Color.Black
+        )
+        Spacer(modifier = Modifier.width(16.dp))
+        Text(
+            text = label,
+            fontSize = 16.sp,
+            fontWeight = FontWeight.Medium,
+            color = Color.Black,
+            modifier = Modifier.weight(1f)
+        )
+        Icon(
+            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+            contentDescription = null,
+            tint = Color.Gray
+        )
     }
 }

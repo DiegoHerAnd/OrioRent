@@ -61,7 +61,7 @@ fun LocalFormScreen(
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 16.dp, vertical = 12.dp)
         ) {
-            // Sección Fotos
+            // Sección De Fotos
             Text("Fotos del producto", fontWeight = FontWeight.SemiBold, fontSize = 18.sp)
             Spacer(Modifier.height(12.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -112,7 +112,11 @@ fun LocalFormScreen(
                     )
 
                     FormLabel("Precio")
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.Top
+                    ) {
                         FormTextField(
                             value = precioBase,
                             onValueChange = { precioBase = it },
@@ -125,24 +129,35 @@ fun LocalFormScreen(
                             onExpandedChange = { expandedTipo = !expandedTipo },
                             modifier = Modifier.weight(0.6f)
                         ) {
-                            OutlinedTextField(
+                            TextField(
                                 value = tipoPrecio,
                                 onValueChange = {},
                                 readOnly = true,
                                 trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedTipo) },
                                 shape = RoundedCornerShape(8.dp),
-                                colors = TextFieldDefaults.colors(focusedContainerColor = Color.White, unfocusedContainerColor = Color.White),
-                                modifier = Modifier.menuAnchor().height(50.dp)
+                                colors = TextFieldDefaults.colors(
+                                    focusedContainerColor = Color.White,
+                                    unfocusedContainerColor = Color.White,
+                                    focusedIndicatorColor = Color.Transparent,
+                                    unfocusedIndicatorColor = Color.Transparent
+                                ),
+                                modifier = Modifier
+                                    .menuAnchor()
+                                    .fillMaxWidth()
+                                    .height(50.dp)
                             )
                             ExposedDropdownMenu(
                                 expanded = expandedTipo,
                                 onDismissRequest = { expandedTipo = false }
                             ) {
                                 tiposPrecio.forEach { tipo ->
-                                    DropdownMenuItem(text = { Text(tipo) }, onClick = {
-                                        tipoPrecio = tipo
-                                        expandedTipo = false
-                                    })
+                                    DropdownMenuItem(
+                                        text = { Text(tipo) },
+                                        onClick = {
+                                            tipoPrecio = tipo
+                                            expandedTipo = false
+                                        }
+                                    )
                                 }
                             }
                         }
@@ -151,27 +166,39 @@ fun LocalFormScreen(
                     FormLabel("Categoria")
                     ExposedDropdownMenuBox(
                         expanded = expandedCat,
-                        onExpandedChange = { expandedCat = !expandedCat }
+                        onExpandedChange = { expandedCat = !expandedCat },
+                        modifier = Modifier.fillMaxWidth()
                     ) {
-                        OutlinedTextField(
+                        TextField(
                             value = categorias.find { it.id_categoria == idCategoria }?.nombre ?: "",
                             onValueChange = {},
                             readOnly = true,
-                            placeholder = { Text("Selecciona la categoria") },
+                            placeholder = { Text("Selecciona la categoria", fontSize = 14.sp) },
                             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedCat) },
                             shape = RoundedCornerShape(8.dp),
-                            colors = TextFieldDefaults.colors(focusedContainerColor = Color.White, unfocusedContainerColor = Color.White),
-                            modifier = Modifier.menuAnchor().fillMaxWidth().height(50.dp)
+                            colors = TextFieldDefaults.colors(
+                                focusedContainerColor = Color.White,
+                                unfocusedContainerColor = Color.White,
+                                focusedIndicatorColor = Color.Transparent,
+                                unfocusedIndicatorColor = Color.Transparent
+                            ),
+                            modifier = Modifier
+                                .menuAnchor()
+                                .fillMaxWidth()
+                                .height(50.dp)
                         )
                         ExposedDropdownMenu(
                             expanded = expandedCat,
                             onDismissRequest = { expandedCat = false }
                         ) {
                             categorias.forEach { cat ->
-                                DropdownMenuItem(text = { Text(cat.nombre) }, onClick = {
-                                    idCategoria = cat.id_categoria
-                                    expandedCat = false
-                                })
+                                DropdownMenuItem(
+                                    text = { Text(cat.nombre) },
+                                    onClick = {
+                                        idCategoria = cat.id_categoria
+                                        expandedCat = false
+                                    }
+                                )
                             }
                         }
                     }
@@ -227,12 +254,12 @@ fun FormTextField(
     keyboardType: KeyboardType = KeyboardType.Text,
     counterText: String? = null
 ) {
-    Column {
+    Column(modifier = modifier) {
         TextField(
             value = value,
             onValueChange = onValueChange,
             placeholder = { Text(placeholder, color = Color.Gray, fontSize = 14.sp) },
-            modifier = modifier.fillMaxWidth().heightIn(min = 50.dp),
+            modifier = Modifier.fillMaxWidth().heightIn(min = 50.dp),
             shape = RoundedCornerShape(8.dp),
             singleLine = singleLine,
             keyboardOptions = KeyboardOptions(keyboardType = keyboardType),

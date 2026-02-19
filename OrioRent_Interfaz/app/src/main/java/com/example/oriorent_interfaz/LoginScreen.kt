@@ -87,7 +87,7 @@ fun LoginScreen(
             modifier = Modifier.padding(bottom = 32.dp)
         )
 
-        // Email Field
+        // Campo Email
         TextField(
             value = email,
             onValueChange = { email = it.trim() },
@@ -108,7 +108,7 @@ fun LoginScreen(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Password Field
+        // Campo Contraseña
         TextField(
             value = contrasena,
             onValueChange = { contrasena = it },
@@ -130,7 +130,7 @@ fun LoginScreen(
 
         Spacer(modifier = Modifier.height(32.dp))
 
-        // Login Button
+        // Campo inicio de sesion
         Button(
             onClick = {
                 if (email.isBlank() || contrasena.isBlank()) {
@@ -181,7 +181,7 @@ fun LoginScreen(
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        // Register Link
+        // Link al registro
         Row(
             verticalAlignment = Alignment.CenterVertically
         ) {

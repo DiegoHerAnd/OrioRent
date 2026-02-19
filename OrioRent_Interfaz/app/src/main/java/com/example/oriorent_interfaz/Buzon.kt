@@ -4,37 +4,15 @@ package com.example.oriorent_interfaz
 
 import androidx.annotation.DrawableRes
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.List
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -54,45 +32,42 @@ data class Conversation(
     val date: String,
     @DrawableRes val propertyImage: Int
 )
-//Filtro fecha
+
 fun parseFechaSimple(fecha: String): Int {
     val meses = listOf("ene", "feb", "mar", "abr", "may", "jun",
         "jul", "ago", "sep", "oct", "nov", "dic")
     val partes = fecha.trim().split(" ")
     val dia = partes[0].toIntOrNull() ?: 0
     val mes = meses.indexOf(partes.getOrNull(1)?.lowercase() ?: "")
-    return mes * 100 + dia // Número comparable
+    return mes * 100 + dia
 }
-// Sample data based on the image provided
+
 val sampleConversations = listOf(
     Conversation(
         sender = "Juan García",
         propertyName = "Sala de reuniones",
         lastMessage = "Hola, ¿qué tal?",
         date = "08 ene",
-        propertyImage = R.drawable.ic_launcher_background // TODO: Replace with your actual drawable
+        propertyImage = R.drawable.ic_launcher_background
     ),
     Conversation(
         sender = "Luis Pérez",
         propertyName = "Sala de fiestas privada",
         lastMessage = "Hola no tengo ni idea...",
         date = "11 nov",
-        propertyImage = R.drawable.ic_launcher_background // TODO: Replace with your actual drawable
+        propertyImage = R.drawable.ic_launcher_background
     ),
     Conversation(
         sender = "Marta Santos",
         propertyName = "Sala de reuniones",
         lastMessage = "Buenas mira te comento......",
         date = "03 nov",
-        propertyImage = R.drawable.ic_launcher_background // TODO: Replace with your actual drawable
+        propertyImage = R.drawable.ic_launcher_background
     )
 )
 
-
-
 @Composable
 fun PostalService(onBack: () -> Unit) {
-    //Valores filtro
     var ordenAscendente by remember { mutableStateOf(false) }
 
     val conversacionesOrdenadas = remember(ordenAscendente) {
@@ -119,8 +94,6 @@ fun PostalService(onBack: () -> Unit) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Atrás")
                     }
                 },
-
-                //Icono filtro
                 actions = {
                     IconButton(onClick = { ordenAscendente = !ordenAscendente}) {
                         Icon(Icons.AutoMirrored.Filled.List, contentDescription = "Filtrar")
@@ -129,7 +102,7 @@ fun PostalService(onBack: () -> Unit) {
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White)
             )
         },
-        containerColor = Color.White
+        containerColor = Color(0xFFF5F5F5)
     ) { paddingValues ->
         LazyColumn(
             modifier = Modifier
@@ -142,6 +115,7 @@ fun PostalService(onBack: () -> Unit) {
             items(conversacionesOrdenadas) { conversation ->
                 ConversationItem(conversation = conversation)
             }
+            item { Spacer(modifier = Modifier.height(16.dp)) }
         }
     }
 }
@@ -151,7 +125,8 @@ fun ConversationItem(conversation: Conversation) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFF0F1C25))
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Row(
             modifier = Modifier.padding(12.dp),
@@ -170,28 +145,28 @@ fun ConversationItem(conversation: Conversation) {
                 Row(verticalAlignment = Alignment.Top) {
                     Text(
                         text = conversation.sender,
-                        color = Color.White,
+                        color = Color.Black,
                         fontWeight = FontWeight.Bold,
                         fontSize = 16.sp,
                         modifier = Modifier.weight(1f)
                     )
                     Text(
                         text = conversation.date,
-                        color = Color.LightGray,
+                        color = Color.Gray,
                         fontSize = 12.sp
                     )
                 }
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
                     text = conversation.propertyName,
-                    color = Color(0xFF66C2FF), // A light blue color for emphasis
+                    color = Color(0xFF1976D2),
                     fontWeight = FontWeight.Bold,
                     fontSize = 14.sp
                 )
                 Spacer(modifier = Modifier.height(2.dp))
                 Text(
                     text = conversation.lastMessage,
-                    color = Color.LightGray,
+                    color = Color.Gray,
                     fontSize = 14.sp
                 )
             }
@@ -199,7 +174,7 @@ fun ConversationItem(conversation: Conversation) {
     }
 }
 
-@Preview(showBackground = true, backgroundColor = 0xFFFFFFFF)
+@Preview(showBackground = true, backgroundColor = 0xFFF5F5F5)
 @Composable
 fun PostalServicePreview() {
     MaterialTheme {

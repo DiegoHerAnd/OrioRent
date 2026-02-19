@@ -9,11 +9,11 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -37,10 +37,13 @@ fun LocalDetailsScreen(
 ) {
     val context = LocalContext.current
     val dbHelper = remember { OrioRentDBHelper(context) }
-    val local = remember { dbHelper.obtenerLocalPorId(idLocal) }
-    val usuario = remember { dbHelper.obtenerUsuarioPorEmail(usuarioEmail) }
+    val local = remember(idLocal) { dbHelper.obtenerLocalPorId(idLocal) }
+    val usuario = remember(usuarioEmail) { dbHelper.obtenerUsuarioPorEmail(usuarioEmail) }
+    val idUsuario = usuario?.id_usuario ?: -1
 
-    val esPropietario = local?.id_propietario == usuario?.id_usuario
+    var isFavorite by remember { mutableStateOf(dbHelper.esFavorito(idUsuario, idLocal)) }
+
+    val esPropietario = local?.id_propietario == idUsuario
 
     if (local == null) {
         Scaffold {
@@ -81,7 +84,7 @@ fun LocalDetailsScreen(
                             val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
                             val hoy = sdf.format(Date())
                             dbHelper.insertarReserva(
-                                idUsuario = usuario?.id_usuario ?: 0,
+                                idUsuario = idUsuario,
                                 idLocal = local.id_local,
                                 fechaInicio = hoy,
                                 fechaFin = hoy,
@@ -102,25 +105,23 @@ fun LocalDetailsScreen(
             val scrollState = rememberScrollState()
 
             Column(modifier = Modifier.verticalScroll(scrollState)) {
-                // --- Image Header ---
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(300.dp)
                 ) {
                     Image(
-                        painter = painterResource(id = R.drawable.fiesta),
+                        painter = painterResource(id = if (local.id_categoria == 1) R.drawable.fiesta else R.drawable.logooriorent),
                         contentDescription = "Imagen del local",
                         contentScale = ContentScale.Crop,
                         modifier = Modifier.fillMaxSize()
                     )
                 }
 
-                // --- Content Card ---
                 Surface(
                     modifier = Modifier
                         .fillMaxSize()
-                        .offset(y = (-20).dp), // Overlap effect
+                        .offset(y = (-20).dp),
                     shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp),
                     color = MaterialTheme.colorScheme.background
                 ) {
@@ -136,7 +137,7 @@ fun LocalDetailsScreen(
                             fontSize = 16.sp
                         )
 
-                        Divider(modifier = Modifier.padding(vertical = 16.dp))
+                        HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
 
                         Text(
                             text = "Información",
@@ -169,12 +170,6 @@ fun LocalDetailsScreen(
                             fontSize = 20.sp
                         )
                         Spacer(modifier = Modifier.height(8.dp))
-                        // Map Placeholder
-                        Text(
-                            text = local.descripcion,
-                            fontSize = 16.sp,
-                            lineHeight = 24.sp
-                        )
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -188,8 +183,6 @@ fun LocalDetailsScreen(
                     }
                 }
             }
-
-            // --- Floating Buttons ---
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -203,10 +196,16 @@ fun LocalDetailsScreen(
                     Icon(Icons.Default.ArrowBack, contentDescription = "Volver")
                 }
                 IconButton(
-                    onClick = { /* TODO: Favorite action */ },
+                    onClick = { 
+                        isFavorite = dbHelper.toggleFavorito(idUsuario, idLocal)
+                    },
                     modifier = Modifier.background(Color.White.copy(alpha = 0.7f), CircleShape)
                 ) {
-                    Icon(Icons.Default.FavoriteBorder, contentDescription = "Favorito")
+                    Icon(
+                        imageVector = if (isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                        contentDescription = "Favorito",
+                        tint = if (isFavorite) Color.Red else Color.Black
+                    )
                 }
             }
         }

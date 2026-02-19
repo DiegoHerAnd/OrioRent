@@ -1,12 +1,13 @@
 package com.example.oriorent_interfaz
 
-import android.util.Log
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -16,13 +17,17 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MainScreen(
+    usuarioEmail: String,
     onLogout: () -> Unit,
     onAddLocalClick: () -> Unit,
     onLocalClick: (Int) -> Unit,
@@ -30,22 +35,24 @@ fun MainScreen(
     onFavouritesClick: () -> Unit,
     onProfileScreen: () -> Unit
 ) {
-    var selectedTab by remember { mutableStateOf(0) }
     var searchText by remember { mutableStateOf("") }
     
     val context = LocalContext.current
     val dbHelper = remember { OrioRentDBHelper(context) }
-    val localesOriginales by remember { mutableStateOf(dbHelper.obtenerLocales()) }
+    val usuario = remember(usuarioEmail) { dbHelper.obtenerUsuarioPorEmail(usuarioEmail) }
+    val idUsuario = usuario?.id_usuario ?: -1
+    
+    var refreshLocales by remember { mutableIntStateOf(0) }
+    val localesOriginales by remember(refreshLocales) { mutableStateOf(dbHelper.obtenerLocales()) }
 
-    // Filtrar locales según el texto de búsqueda
     val localesFiltrados = remember(searchText, localesOriginales) {
         if (searchText.isBlank()) {
             localesOriginales
         } else {
-            localesOriginales.filter { local ->
-                local.nombre.contains(searchText, ignoreCase = true) ||
-                local.descripcion.contains(searchText, ignoreCase = true) ||
-                local.direccion.contains(searchText, ignoreCase = true)
+            localesOriginales.filter {
+                it.nombre.contains(searchText, ignoreCase = true) ||
+                it.descripcion.contains(searchText, ignoreCase = true) ||
+                it.direccion.contains(searchText, ignoreCase = true)
             }
         }
     }
@@ -58,42 +65,25 @@ fun MainScreen(
                     .background(Color.White)
                     .padding(16.dp)
             ) {
-                // Barra de búsqueda funcional
-                OutlinedTextField(
+                TextField(
                     value = searchText,
                     onValueChange = { searchText = it },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(56.dp),
-                    placeholder = { Text("Search by name, description or address...") },
-                    leadingIcon = {
-                        Icon(
-                            Icons.Default.Search,
-                            contentDescription = "Buscar"
-                        )
-                    },
-                    trailingIcon = {
-                        if (searchText.isNotEmpty()) {
-                            IconButton(onClick = { searchText = "" }) {
-                                Icon(Icons.Default.Clear, contentDescription = "Limpiar")
-                            }
-                        } else {
-                            Icon(
-                                Icons.Default.KeyboardArrowDown,
-                                contentDescription = "Opciones"
-                            )
-                        }
-                    },
-                    shape = RoundedCornerShape(28.dp),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        unfocusedBorderColor = Color.LightGray,
-                        focusedBorderColor = Color(0xFF1976D2)
+                        .height(50.dp),
+                    placeholder = { Text("Search", fontSize = 14.sp) },
+                    leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+                    shape = RoundedCornerShape(25.dp),
+                    colors = TextFieldDefaults.colors(
+                        focusedContainerColor = Color(0xFFEFEFEF),
+                        unfocusedContainerColor = Color(0xFFEFEFEF),
+                        focusedIndicatorColor = Color.Transparent,
+                        unfocusedIndicatorColor = Color.Transparent
                     )
                 )
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // Botones de Favoritos y Categorías
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -101,74 +91,54 @@ fun MainScreen(
                     Button(
                         onClick = onFavouritesClick,
                         modifier = Modifier.weight(1f),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFF1976D2)
-                        ),
-                        shape = RoundedCornerShape(8.dp)
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1A4A7A)),
+                        shape = RoundedCornerShape(12.dp)
                     ) {
-                        Icon(
-                            Icons.Default.Favorite,
-                            contentDescription = null,
-                            modifier = Modifier.size(20.dp)
-                        )
+                        Icon(Icons.Default.Favorite, contentDescription = null, modifier = Modifier.size(18.dp))
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text("FAVORITOS")
+                        Text("FAVORITOS", fontSize = 12.sp)
                     }
 
                     Button(
-                        onClick = {
-                            Log.d("MainScreen", "Categorías clicked")
-                        },
+                        onClick = { /* Categorías */ },
                         modifier = Modifier.weight(1f),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFF1976D2)
-                        ),
-                        shape = RoundedCornerShape(8.dp)
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1A4A7A)),
+                        shape = RoundedCornerShape(12.dp)
                     ) {
-                        Icon(
-                            Icons.Default.AccountBox,
-                            contentDescription = null,
-                            modifier = Modifier.size(20.dp)
-                        )
+                        Icon(Icons.Default.List, contentDescription = null, modifier = Modifier.size(18.dp))
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text("CATEGORÍAS")
+                        Text("CATEGORIAS", fontSize = 12.sp)
                     }
                 }
             }
         },
         bottomBar = {
             NavigationBar(
-                containerColor = Color.White,
-                tonalElevation = 8.dp
+                containerColor = Color(0xFF1A4A7A)
             ) {
                 NavigationBarItem(
-                    icon = { Icon(Icons.Default.Home, contentDescription = "Inicio") },
-                    selected = selectedTab == 0,
-                    onClick = { selectedTab = 0 }
+                    icon = { Icon(Icons.Default.Home, contentDescription = null, tint = Color.White) },
+                    label = { Text("Inicio", color = Color.White) },
+                    selected = true,
+                    onClick = { }
                 )
                 NavigationBarItem(
-                    icon = { Icon(Icons.Default.Email, contentDescription = "Mensajes") },
-                    selected = selectedTab == 1,
-                    onClick = {
-                        selectedTab = 1
-                        onPostalServiceClick()
-                    }
+                    icon = { Icon(Icons.Default.Email, contentDescription = null, tint = Color.White) },
+                    label = { Text("Buzón", color = Color.White) },
+                    selected = false,
+                    onClick = onPostalServiceClick
                 )
                 NavigationBarItem(
-                    icon = { Icon(Icons.Default.Add, contentDescription = "Añadir") },
-                    selected = selectedTab == 2,
-                    onClick = { 
-                        selectedTab = 2
-                        onAddLocalClick()
-                    }
+                    icon = { Icon(Icons.Default.Add, contentDescription = null, tint = Color.White) },
+                    label = { Text("Subir", color = Color.White) },
+                    selected = false,
+                    onClick = onAddLocalClick
                 )
                 NavigationBarItem(
-                    icon = { Icon(Icons.Default.Person, contentDescription = "Perfil") },
-                    selected = selectedTab == 3,
-                    onClick = {
-                        selectedTab = 3
-                        onProfileScreen()
-                    }
+                    icon = { Icon(Icons.Default.Person, contentDescription = null, tint = Color.White) },
+                    label = { Text("Tú", color = Color.White) },
+                    selected = false,
+                    onClick = onProfileScreen
                 )
             }
         }
@@ -177,79 +147,75 @@ fun MainScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
-                .background(Color(0xFFF5F5F5))
+                .background(Color.White)
         ) {
-            // Sección "¡Lo mas buscado!" (solo se muestra si no hay búsqueda activa)
-            if (searchText.isEmpty()) {
-                item {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        Text(
-                            text = "¡Lo mas buscado!",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold
-                        )
-
-                        Spacer(modifier = Modifier.height(12.dp))
-
-                        LazyRow(
-                            horizontalArrangement = Arrangement.spacedBy(12.dp)
-                        ) {
-                            item {
-                                CategoryCard(
-                                    title = "Fiesta",
-                                    color = Color(0xFF1976D2)
-                                )
-                            }
-                            item {
-                                CategoryCard(
-                                    title = "Reunion",
-                                    color = Color(0xFF1976D2)
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-
-            // Sección "Locales Disponibles"
             item {
-                Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    text = if (searchText.isEmpty()) "Locales Disponibles" else "Resultados de búsqueda (${localesFiltrados.size})",
-                    style = MaterialTheme.typography.titleMedium,
+                    text = "¡Lo mas buscado!",
+                    modifier = Modifier.padding(16.dp),
                     fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(horizontal = 16.dp)
+                    fontSize = 18.sp
                 )
-                Spacer(modifier = Modifier.height(12.dp))
+                LazyRow(
+                    contentPadding = PaddingValues(horizontal = 16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    item { CategoryItemCard("Fiesta", R.drawable.fiesta) }
+                    item { CategoryItemCard("Reunion", R.drawable.logooriorent) }
+                }
             }
 
-            // Muestra los locales filtrados
-            if (localesFiltrados.isEmpty()) {
-                item {
-                    Box(modifier = Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
-                        Text("No se han encontrado locales que coincidan con tu búsqueda.")
+            item {
+                Text(
+                    text = "Destacados",
+                    modifier = Modifier.padding(16.dp),
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 18.sp
+                )
+                LazyRow(
+                    contentPadding = PaddingValues(horizontal = 16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    items(localesFiltrados) { local ->
+                        var isFav by remember { mutableStateOf(dbHelper.esFavorito(idUsuario, local.id_local)) }
+                        FeaturedLocalCard(
+                            local = local,
+                            isFavorite = isFav,
+                            onFavoriteToggle = {
+                                isFav = dbHelper.toggleFavorito(idUsuario, local.id_local)
+                                refreshLocales++
+                            },
+                            onClick = { onLocalClick(local.id_local) },
+                            modifier = Modifier.width(200.dp)
+                        )
                     }
                 }
-            } else {
-                items(localesFiltrados) { local ->
-                    LocalCard(
-                        precio = "${local.precio_base}€ / ${local.tipo_precio}",
-                        descripcion = "${local.nombre} - ${local.direccion}",
-                        onClick = { onLocalClick(local.id_local) },
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
-                    )
-                }
             }
 
-            // Espaciado final y botón de cerrar sesión
             item {
-                Spacer(modifier = Modifier.height(16.dp))
-                Button(
-                    onClick = onLogout,
-                    modifier = Modifier.fillMaxWidth().padding(16.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color.Red)
+                Text(
+                    text = "Lo mas reciente...",
+                    modifier = Modifier.padding(16.dp),
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 18.sp
+                )
+                LazyRow(
+                    contentPadding = PaddingValues(horizontal = 16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    Text("Cerrar Sesión")
+                    items(localesFiltrados.reversed()) { local ->
+                        var isFav by remember { mutableStateOf(dbHelper.esFavorito(idUsuario, local.id_local)) }
+                        FeaturedLocalCard(
+                            local = local,
+                            isFavorite = isFav,
+                            onFavoriteToggle = {
+                                isFav = dbHelper.toggleFavorito(idUsuario, local.id_local)
+                                refreshLocales++
+                            },
+                            onClick = { onLocalClick(local.id_local) },
+                            modifier = Modifier.width(200.dp)
+                        )
+                    }
                 }
             }
         }
@@ -257,89 +223,83 @@ fun MainScreen(
 }
 
 @Composable
-fun CategoryCard(
-    title: String,
-    color: Color,
-    modifier: Modifier = Modifier
-) {
+fun CategoryItemCard(title: String, imageRes: Int) {
     Card(
-        modifier = modifier
-            .width(140.dp)
-            .height(80.dp)
-            .clickable {
-                Log.d("MainScreen", "Category clicked: $title")
-            },
+        modifier = Modifier
+            .width(160.dp)
+            .height(70.dp),
         shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = color
-        )
+        colors = CardDefaults.cardColors(containerColor = Color(0xFF1A4A7A))
     ) {
-        Box(
+        Row(
             modifier = Modifier.fillMaxSize(),
-            contentAlignment = Alignment.BottomStart
+            verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
                 text = title,
+                modifier = Modifier.weight(1f).padding(start = 12.dp),
                 color = Color.White,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(12.dp)
+                fontWeight = FontWeight.Bold
+            )
+            Image(
+                painter = painterResource(imageRes),
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.width(60.dp).fillMaxHeight()
             )
         }
     }
 }
 
 @Composable
-fun LocalCard(
-    precio: String,
-    descripcion: String,
+fun FeaturedLocalCard(
+    local: Local,
+    isFavorite: Boolean,
+    onFavoriteToggle: () -> Unit,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Card(
-        modifier = modifier
-            .fillMaxWidth()
-            .height(280.dp)
-            .clickable { onClick() },
+        modifier = modifier.clickable { onClick() },
         shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = Color.White
-        ),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Column {
-            // Imagen del local (placeholder con color)
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(180.dp)
-                    .background(Color(0xFF1976D2))
-                    .clip(RoundedCornerShape(topStart = 12.dp, topEnd = 12.dp)),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    Icons.Default.Home,
+            Box(modifier = Modifier.fillMaxWidth().height(120.dp)) {
+                Image(
+                    painter = painterResource(if (local.id_categoria == 1) R.drawable.fiesta else R.drawable.logooriorent),
                     contentDescription = null,
-                    tint = Color.White,
-                    modifier = Modifier.size(64.dp)
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(topStart = 12.dp, topEnd = 12.dp))
                 )
+                IconButton(
+                    onClick = { onFavoriteToggle() },
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(8.dp)
+                        .size(32.dp)
+                        .background(Color.White.copy(alpha = 0.6f), CircleShape)
+                ) {
+                    Icon(
+                        imageVector = if (isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                        contentDescription = "Favorite",
+                        tint = if (isFavorite) Color.Red else Color.Gray,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
             }
-
-            // Información del local
-            Column(
-                modifier = Modifier.padding(16.dp)
-            ) {
+            Column(modifier = Modifier.padding(8.dp)) {
                 Text(
-                    text = precio,
-                    style = MaterialTheme.typography.titleLarge,
+                    text = "${local.precio_base}€/${local.tipo_precio}",
                     fontWeight = FontWeight.Bold,
-                    color = Color.Black
+                    fontSize = 16.sp
                 )
-                Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = descripcion,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = Color.Gray
+                    text = local.nombre,
+                    fontSize = 12.sp,
+                    color = Color.Gray,
+                    maxLines = 1
                 )
             }
         }
