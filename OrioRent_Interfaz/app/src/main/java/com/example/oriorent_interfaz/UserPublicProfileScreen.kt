@@ -1,6 +1,5 @@
 package com.example.oriorent_interfaz
 
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -20,9 +19,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -30,202 +27,165 @@ import androidx.compose.ui.unit.sp
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun UserPublicProfileScreen(
-    usuarioEmail: String,
+    usuarioEmail: String,          // email del usuario logueado (para favoritos, etc.)
+    emailPerfil: String = usuarioEmail, // email del perfil que se muestra (puede ser otro)
     onBackClick: () -> Unit,
     onAddLocalClick: () -> Unit,
     onLocalClick: (Int) -> Unit
 ) {
     val context = LocalContext.current
     val dbHelper = remember { OrioRentDBHelper(context) }
-    val usuario = remember(usuarioEmail) { dbHelper.obtenerUsuarioPorEmail(usuarioEmail) }
-    val idUsuario = usuario?.id_usuario ?: -1
-    
-    // Obtener los locales del usuario
+
+    val usuarioLogueado = remember(usuarioEmail) { dbHelper.obtenerUsuarioPorEmail(usuarioEmail) }
+    val idUsuarioLogueado = usuarioLogueado?.id_usuario ?: -1
+
+    // Datos del perfil que estamos viendo
+    val perfilUsuario = remember(emailPerfil) { dbHelper.obtenerUsuarioPorEmail(emailPerfil) }
+    val idPerfil = perfilUsuario?.id_usuario ?: -1
+
+    val esMiPerfil = idUsuarioLogueado == idPerfil
+
     var refreshCount by remember { mutableIntStateOf(0) }
-    val misLocales = remember(refreshCount, idUsuario) {
-        dbHelper.obtenerLocales().filter { it.id_propietario == idUsuario }
+    val misLocales = remember(refreshCount, idPerfil) {
+        dbHelper.obtenerLocales().filter { it.id_propietario == idPerfil }
     }
-    
+
     var selectedTab by remember { mutableIntStateOf(0) }
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { },
+                title = {
+                    Text(
+                        if (esMiPerfil) "Mi perfil" else perfilUsuario?.nombre ?: "Perfil",
+                        fontWeight = FontWeight.Bold
+                    )
+                },
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Atrás")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "Atrás")
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White)
             )
         }
-    ) { paddingValues ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-                .background(Color.White)
-        ) {
-            // Header Info
+    ) { pv ->
+        Column(Modifier.fillMaxSize().padding(pv).background(Color.White)) {
+
+            // ── Cabecera ──────────────────────────────────────────────────
             Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 24.dp, vertical = 16.dp),
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 16.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = usuario?.nombre ?: "Usuario",
-                        fontSize = 24.sp,
-                        fontWeight = FontWeight.Bold
-                    )
+                Column(Modifier.weight(1f)) {
+                    Text(perfilUsuario?.nombre ?: "Usuario", fontSize = 24.sp, fontWeight = FontWeight.Bold)
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         repeat(5) {
-                            Icon(
-                                imageVector = Icons.Default.Star,
-                                contentDescription = null,
-                                tint = Color.LightGray,
-                                modifier = Modifier.size(18.dp)
-                            )
+                            Icon(Icons.Default.Star, null, tint = Color.LightGray, modifier = Modifier.size(18.dp))
                         }
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(text = "0 (0)", color = Color.Gray, fontSize = 14.sp)
+                        Spacer(Modifier.width(4.dp))
+                        Text("0 (0)", color = Color.Gray, fontSize = 14.sp)
                     }
-                    
-                    Spacer(modifier = Modifier.height(16.dp))
-                    
+                    Spacer(Modifier.height(12.dp))
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(painter = painterResource(id = android.R.drawable.ic_menu_sort_by_size), contentDescription = null, modifier = Modifier.size(16.dp))
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(text = "0 Alquilados ${misLocales.size} Alquileres", fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                        Icon(Icons.Default.Star, null, Modifier.size(16.dp), tint = Color.Gray)
+                        Spacer(Modifier.width(8.dp))
+                        Text("${misLocales.size} ${if (misLocales.size == 1) "local" else "locales"}", fontSize = 14.sp, fontWeight = FontWeight.Bold)
                     }
-                    Spacer(modifier = Modifier.height(4.dp))
+                    Spacer(Modifier.height(4.dp))
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.LocationOn, contentDescription = null, modifier = Modifier.size(16.dp), tint = Color.Gray)
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(text = "Ubicación no disponible", color = Color.Gray, fontSize = 14.sp)
+                        Icon(Icons.Default.LocationOn, null, Modifier.size(16.dp), tint = Color.Gray)
+                        Spacer(Modifier.width(8.dp))
+                        Text("Ubicación no disponible", color = Color.Gray, fontSize = 14.sp)
                     }
                 }
-                
+
+                // Avatar con inicial
                 Box(
-                    modifier = Modifier
-                        .size(100.dp)
-                        .clip(CircleShape)
-                        .background(Color(0xFFF0F2F5)),
+                    modifier = Modifier.size(80.dp).clip(CircleShape).background(Color(0xFF1A4A7A)),
                     contentAlignment = Alignment.Center
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.Star,
-                        contentDescription = null,
-                        modifier = Modifier.size(50.dp),
-                        tint = Color.Gray
+                    Text(
+                        text = (perfilUsuario?.nombre?.take(1) ?: "?").uppercase(),
+                        color = Color.White, fontWeight = FontWeight.Bold, fontSize = 32.sp
                     )
                 }
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Tabs
+            // ── Tabs ──────────────────────────────────────────────────────
             Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(60.dp)
-                    .background(
-                        brush = androidx.compose.ui.graphics.Brush.verticalGradient(
-                            colors = listOf(Color(0xFF2C5E8A), Color(0xFF1A4A7A))
-                        )
-                    )
+                modifier = Modifier.fillMaxWidth().height(56.dp)
+                    .background(Color(0xFF1A4A7A))
             ) {
-                Row(modifier = Modifier.fillMaxSize()) {
+                Row(Modifier.fillMaxSize()) {
                     ProfileTabItem(
-                        title = misLocales.size.toString(),
-                        subtitle = "Alquileres",
-                        selected = selectedTab == 0,
-                        modifier = Modifier.weight(1f),
+                        title = misLocales.size.toString(), subtitle = "Locales",
+                        selected = selectedTab == 0, modifier = Modifier.weight(1f),
                         onClick = { selectedTab = 0 }
                     )
                     ProfileTabItem(
-                        title = "0",
-                        subtitle = "Valoraciones",
-                        selected = selectedTab == 1,
-                        modifier = Modifier.weight(1f),
+                        title = "0", subtitle = "Valoraciones",
+                        selected = selectedTab == 1, modifier = Modifier.weight(1f),
                         onClick = { selectedTab = 1 }
                     )
-                    ProfileTabItem(
-                        icon = Icons.Default.Add,
-                        subtitle = "Info",
-                        selected = selectedTab == 2,
-                        modifier = Modifier.weight(1f),
-                        onClick = { selectedTab = 2 }
-                    )
+                    if (esMiPerfil) {
+                        ProfileTabItem(
+                            icon = Icons.Default.Add, subtitle = "Subir",
+                            selected = selectedTab == 2, modifier = Modifier.weight(1f),
+                            onClick = { selectedTab = 2 }
+                        )
+                    }
                 }
             }
 
-            // Content
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(16.dp),
-                contentAlignment = Alignment.TopCenter
-            ) {
-                if (selectedTab == 0) {
-                    if (misLocales.isEmpty()) {
-                        Column(
-                            modifier = Modifier.fillMaxSize(),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.Center
-                        ) {
-                            Text(
-                                text = "Nada en alquiler todavía...",
-                                fontSize = 18.sp,
-                                color = Color.Black
-                            )
-                            Spacer(modifier = Modifier.height(24.dp))
-                            Icon(
-                                painter = painterResource(id = android.R.drawable.ic_menu_help),
-                                contentDescription = null,
-                                modifier = Modifier.size(64.dp)
-                            )
-                            Spacer(modifier = Modifier.height(16.dp))
-                            Button(
-                                onClick = onAddLocalClick,
-                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1A4A7A)),
-                                shape = RoundedCornerShape(20.dp),
-                                modifier = Modifier.width(150.dp)
+            // ── Contenido de tab ──────────────────────────────────────────
+            Box(Modifier.fillMaxSize().padding(16.dp), contentAlignment = Alignment.TopCenter) {
+                when (selectedTab) {
+                    0 -> {
+                        if (misLocales.isEmpty()) {
+                            Column(
+                                modifier = Modifier.fillMaxSize(),
+                                verticalArrangement = Arrangement.Center,
+                                horizontalAlignment = Alignment.CenterHorizontally
                             ) {
-                                Text("Subir local")
+                                Text("Nada en alquiler todavía...", fontSize = 18.sp, color = Color.Black)
+                                if (esMiPerfil) {
+                                    Spacer(Modifier.height(24.dp))
+                                    Button(onClick = onAddLocalClick,
+                                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1A4A7A)),
+                                        shape = RoundedCornerShape(20.dp), modifier = Modifier.width(150.dp)) {
+                                        Text("Subir local")
+                                    }
+                                }
                             }
-                        }
-                    } else {
-                        LazyVerticalGrid(
-                            columns = GridCells.Fixed(2),
-                            contentPadding = PaddingValues(8.dp),
-                            horizontalArrangement = Arrangement.spacedBy(12.dp),
-                            verticalArrangement = Arrangement.spacedBy(12.dp),
-                            modifier = Modifier.fillMaxSize()
-                        ) {
-                            items(misLocales) { local ->
-                                FeaturedLocalCard(
-                                    local = local,
-                                    isFavorite = dbHelper.esFavorito(idUsuario, local.id_local),
-                                    onFavoriteToggle = {
-                                        dbHelper.toggleFavorito(idUsuario, local.id_local)
-                                        refreshCount++
-                                    },
-                                    onClick = { onLocalClick(local.id_local) },
-                                    modifier = Modifier.fillMaxWidth()
-                                )
+                        } else {
+                            LazyVerticalGrid(
+                                columns = GridCells.Fixed(2),
+                                contentPadding = PaddingValues(4.dp),
+                                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                verticalArrangement = Arrangement.spacedBy(12.dp),
+                                modifier = Modifier.fillMaxSize()
+                            ) {
+                                items(misLocales) { local ->
+                                    FeaturedLocalCard(
+                                        local = local,
+                                        isFavorite = dbHelper.esFavorito(idUsuarioLogueado, local.id_local),
+                                        onFavoriteToggle = { dbHelper.toggleFavorito(idUsuarioLogueado, local.id_local); refreshCount++ },
+                                        onClick = { onLocalClick(local.id_local) },
+                                        modifier = Modifier.fillMaxWidth()
+                                    )
+                                }
                             }
                         }
                     }
-                } else if (selectedTab == 1) {
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Text("No tienes valoraciones todavía.", color = Color.Gray)
-                    }
-                } else {
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Text("Información del perfil próximamente.", color = Color.Gray)
+                    1 -> Box(Modifier.fillMaxSize(), Alignment.Center) { Text("No hay valoraciones todavía.", color = Color.Gray) }
+                    2 -> {
+                        // Tab "Subir" solo aparece en mi propio perfil
+                        Box(Modifier.fillMaxSize(), Alignment.Center) {
+                            Button(onClick = onAddLocalClick,
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1A4A7A)),
+                                shape = RoundedCornerShape(20.dp)) { Text("Subir nuevo local") }
+                        }
                     }
                 }
             }
@@ -243,31 +203,15 @@ fun ProfileTabItem(
     onClick: () -> Unit
 ) {
     Column(
-        modifier = modifier
-            .fillMaxHeight()
-            .clickable { onClick() },
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
+        modifier = modifier.fillMaxHeight().clickable { onClick() },
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
         if (title != null) {
-            Text(
-                text = title,
-                color = if (selected) Color(0xFFFFC107) else Color.White,
-                fontSize = 18.sp,
-                fontWeight = FontWeight.Bold
-            )
+            Text(title, color = if (selected) Color(0xFFFFC107) else Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold)
         } else if (icon != null) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = if (selected) Color(0xFFFFC107) else Color.White,
-                modifier = Modifier.size(24.dp)
-            )
+            Icon(icon, null, tint = if (selected) Color(0xFFFFC107) else Color.White, modifier = Modifier.size(22.dp))
         }
-        Text(
-            text = subtitle,
-            color = if (selected) Color(0xFFFFC107) else Color.White,
-            fontSize = 14.sp
-        )
+        Text(subtitle, color = if (selected) Color(0xFFFFC107) else Color.White, fontSize = 13.sp)
     }
 }
