@@ -6,6 +6,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -17,11 +18,11 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 fun OrioRentApp() {
-    var pantallaActual         by remember { mutableStateOf("login") }
-    var usuarioLogueadoEmail   by remember { mutableStateOf("") }
-    var idLocalSeleccionado    by remember { mutableIntStateOf(-1) }
+    var pantallaActual         by rememberSaveable { mutableStateOf("login") }
+    var usuarioLogueadoEmail   by rememberSaveable { mutableStateOf("") }
+    var idLocalSeleccionado    by rememberSaveable { mutableIntStateOf(-1) }
     // Email del propietario cuyo perfil público queremos ver
-    var emailPropietarioVer    by remember { mutableStateOf("") }
+    var emailPropietarioVer    by rememberSaveable { mutableStateOf("") }
 
     when (pantallaActual) {
 
