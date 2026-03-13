@@ -21,8 +21,8 @@ fun OrioRentApp() {
     var pantallaActual         by rememberSaveable { mutableStateOf("login") }
     var usuarioLogueadoEmail   by rememberSaveable { mutableStateOf("") }
     var idLocalSeleccionado    by rememberSaveable { mutableIntStateOf(-1) }
-    // Email del propietario cuyo perfil público queremos ver
     var emailPropietarioVer    by rememberSaveable { mutableStateOf("") }
+    var idConversacionActual   by rememberSaveable { mutableIntStateOf(-1) }
 
     when (pantallaActual) {
 
@@ -58,15 +58,26 @@ fun OrioRentApp() {
             usuarioEmail     = usuarioLogueadoEmail,
             onBackClick      = { pantallaActual = "main" },
             onReservaSuccess = { pantallaActual = "my_bookings" },
-            // Al pulsar el propietario, guardamos su email y navegamos a su perfil
             onOwnerClick     = { ownerEmail ->
                 emailPropietarioVer = ownerEmail
                 pantallaActual = "owner_profile"
+            },
+            onContactarClick = { idConv ->
+                idConversacionActual = idConv
+                pantallaActual = "chat"
             }
         )
 
+        "chat" -> ChatScreen(
+            idConversacion = idConversacionActual,
+            usuarioEmail   = usuarioLogueadoEmail,
+            onBackClick    = { pantallaActual = "postal_service" }
+        )
+
         "postal_service" -> PostalService(
-            onBack = { pantallaActual = "main" }
+            usuarioEmail          = usuarioLogueadoEmail,
+            onBack                = { pantallaActual = "main" },
+            onConversacionClick   = { id -> idConversacionActual = id; pantallaActual = "chat" }
         )
 
         "favourites" -> FavouritesScreen(

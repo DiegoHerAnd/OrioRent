@@ -2,182 +2,166 @@
 
 package com.example.oriorent_interfaz
 
-import androidx.annotation.DrawableRes
-import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
-data class Conversation(
-    val sender: String,
-    val propertyName: String,
-    val lastMessage: String,
-    val date: String,
-    @DrawableRes val propertyImage: Int
-)
-
-fun parseFechaSimple(fecha: String): Int {
-    val meses = listOf("ene", "feb", "mar", "abr", "may", "jun",
-        "jul", "ago", "sep", "oct", "nov", "dic")
-    val partes = fecha.trim().split(" ")
-    val dia = partes[0].toIntOrNull() ?: 0
-    val mes = meses.indexOf(partes.getOrNull(1)?.lowercase() ?: "")
-    return mes * 100 + dia
-}
-
-val sampleConversations = listOf(
-    Conversation(
-        sender = "Juan García",
-        propertyName = "Sala de reuniones",
-        lastMessage = "Hola, ¿qué tal?",
-        date = "08 ene",
-        propertyImage = R.drawable.ic_launcher_background
-    ),
-    Conversation(
-        sender = "Luis Pérez",
-        propertyName = "Sala de fiestas privada",
-        lastMessage = "Hola no tengo ni idea...",
-        date = "11 nov",
-        propertyImage = R.drawable.ic_launcher_background
-    ),
-    Conversation(
-        sender = "Marta Santos",
-        propertyName = "Sala de reuniones",
-        lastMessage = "Buenas mira te comento......",
-        date = "03 nov",
-        propertyImage = R.drawable.ic_launcher_background
-    )
-)
-
 @Composable
-fun PostalService(onBack: () -> Unit) {
-    var ordenAscendente by remember { mutableStateOf(false) }
+fun PostalService(
+    usuarioEmail: String,
+    onBack: () -> Unit,
+    onConversacionClick: (Int) -> Unit
+) {
+    val context = LocalContext.current
+    val dbHelper = remember { OrioRentDBHelper(context) }
+    val usuario  = remember(usuarioEmail) { dbHelper.obtenerUsuarioPorEmail(usuarioEmail) }
+    val idUsuario = usuario?.id_usuario ?: -1
 
-    val conversacionesOrdenadas = remember(ordenAscendente) {
-        if (ordenAscendente)
-            sampleConversations.sortedBy { parseFechaSimple(it.date) }
-        else
-            sampleConversations.sortedByDescending { parseFechaSimple(it.date) }
+    var refreshKey by remember { mutableIntStateOf(0) }
+    val conversaciones = remember(refreshKey, idUsuario) {
+        dbHelper.obtenerConversacionesUsuario(idUsuario)
     }
 
     Scaffold(
         topBar = {
             TopAppBar(
                 title = {
-                    Text(
-                        "Mensajes",
-                        modifier = Modifier.fillMaxWidth(),
-                        textAlign = TextAlign.Center,
-                        color = Color.Black,
-                        fontWeight = FontWeight.Bold
-                    )
+                    Text("Mensajes", modifier = Modifier.fillMaxWidth(),
+                        textAlign = TextAlign.Center, fontWeight = FontWeight.Bold)
                 },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Atrás")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "Atrás")
                     }
                 },
-                actions = {
-                    IconButton(onClick = { ordenAscendente = !ordenAscendente}) {
-                        Icon(Icons.AutoMirrored.Filled.List, contentDescription = "Filtrar")
-                    }
-                },
+                // Espacio vacío para centrar el título
+                actions = { IconButton(onClick = {}) {} },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White)
             )
         },
         containerColor = Color(0xFFF5F5F5)
-    ) { paddingValues ->
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-                .padding(horizontal = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            item { Spacer(modifier = Modifier.height(8.dp)) }
-            items(conversacionesOrdenadas) { conversation ->
-                ConversationItem(conversation = conversation)
+    ) { pv ->
+        if (conversaciones.isEmpty()) {
+            Box(Modifier.fillMaxSize().padding(pv), contentAlignment = Alignment.Center) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text("💬", fontSize = 48.sp)
+                    Text("No tienes mensajes todavía.", color = Color.Gray, fontSize = 16.sp)
+                    Text("Contacta con el dueño de un local\npara iniciar una conversación.",
+                        color = Color.Gray, fontSize = 14.sp, textAlign = TextAlign.Center)
+                }
             }
-            item { Spacer(modifier = Modifier.height(16.dp)) }
-        }
-    }
-}
-
-@Composable
-fun ConversationItem(conversation: Conversation) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-    ) {
-        Row(
-            modifier = Modifier.padding(12.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Image(
-                painter = painterResource(id = conversation.propertyImage),
-                contentDescription = "Imagen del local",
-                modifier = Modifier
-                    .size(56.dp)
-                    .clip(RoundedCornerShape(8.dp)),
-                contentScale = ContentScale.Crop
-            )
-            Spacer(modifier = Modifier.width(12.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                Row(verticalAlignment = Alignment.Top) {
-                    Text(
-                        text = conversation.sender,
-                        color = Color.Black,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 16.sp,
-                        modifier = Modifier.weight(1f)
-                    )
-                    Text(
-                        text = conversation.date,
-                        color = Color.Gray,
-                        fontSize = 12.sp
+        } else {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize().padding(pv).padding(horizontal = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                item { Spacer(Modifier.height(8.dp)) }
+                items(conversaciones, key = { it.id_conversacion }) { conv ->
+                    ConversacionItem(
+                        conv = conv,
+                        idUsuarioActual = idUsuario,
+                        dbHelper = dbHelper,
+                        onClick = { onConversacionClick(conv.id_conversacion) }
                     )
                 }
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = conversation.propertyName,
-                    color = Color(0xFF1976D2),
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 14.sp
-                )
-                Spacer(modifier = Modifier.height(2.dp))
-                Text(
-                    text = conversation.lastMessage,
-                    color = Color.Gray,
-                    fontSize = 14.sp
-                )
+                item { Spacer(Modifier.height(16.dp)) }
             }
         }
     }
 }
 
-@Preview(showBackground = true, backgroundColor = 0xFFF5F5F5)
 @Composable
-fun PostalServicePreview() {
-    MaterialTheme {
-        PostalService(onBack = {})
+fun ConversacionItem(
+    conv: Conversacion,
+    idUsuarioActual: Int,
+    dbHelper: OrioRentDBHelper,
+    onClick: () -> Unit
+) {
+    // El "otro" usuario de la conversación
+    val idOtro = if (conv.id_usuario1 == idUsuarioActual) conv.id_usuario2 else conv.id_usuario1
+    val otroUsuario = remember(idOtro) { dbHelper.obtenerUsuarioPorId(idOtro) }
+    val local       = remember(conv.id_local) { dbHelper.obtenerLocalPorId(conv.id_local) }
+    val inicial     = otroUsuario?.nombre?.take(1)?.uppercase() ?: "?"
+
+    val tieneNoLeidos = conv.mensajes_no_leidos > 0
+
+    Card(
+        modifier = Modifier.fillMaxWidth().clickable { onClick() },
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(2.dp)
+    ) {
+        Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+            // Avatar con inicial
+            Box(
+                Modifier.size(52.dp).clip(CircleShape).background(Color(0xFF1A4A7A)),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(inicial, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 20.sp)
+            }
+
+            Spacer(Modifier.width(12.dp))
+
+            Column(Modifier.weight(1f)) {
+                Row(Modifier.fillMaxWidth(), Arrangement.SpaceBetween, Alignment.CenterVertically) {
+                    Text(
+                        otroUsuario?.nombre ?: "Usuario",
+                        fontWeight = FontWeight.Bold, fontSize = 15.sp,
+                        color = Color.Black, modifier = Modifier.weight(1f)
+                    )
+                    Text(
+                        conv.ultima_fecha.take(10),   // solo fecha yyyy-MM-dd
+                        color = Color.Gray, fontSize = 12.sp
+                    )
+                }
+                Spacer(Modifier.height(2.dp))
+                Text(
+                    local?.nombre ?: "",
+                    color = Color(0xFF1A4A7A), fontSize = 13.sp, fontWeight = FontWeight.Medium
+                )
+                Spacer(Modifier.height(2.dp))
+                Row(Modifier.fillMaxWidth(), Arrangement.SpaceBetween, Alignment.CenterVertically) {
+                    Text(
+                        conv.ultimo_mensaje,
+                        color = if (tieneNoLeidos) Color.Black else Color.Gray,
+                        fontSize = 13.sp,
+                        fontWeight = if (tieneNoLeidos) FontWeight.Medium else FontWeight.Normal,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f)
+                    )
+                    if (tieneNoLeidos) {
+                        Spacer(Modifier.width(8.dp))
+                        Box(
+                            Modifier.size(20.dp).clip(CircleShape).background(Color(0xFF1A4A7A)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                conv.mensajes_no_leidos.toString(),
+                                color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+                }
+            }
+        }
     }
 }

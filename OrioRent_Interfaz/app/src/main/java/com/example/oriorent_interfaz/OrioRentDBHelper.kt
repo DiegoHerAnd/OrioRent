@@ -9,19 +9,21 @@ import java.text.SimpleDateFormat
 import java.util.*
 
 class OrioRentDBHelper(context: Context) :
-    SQLiteOpenHelper(context, "orioRent.db", null, 3) {
+    SQLiteOpenHelper(context, "orioRent.db", null, 4) {
 
     companion object {
-        const val TABLE_USUARIO     = "USUARIO"
-        const val TABLE_CATEGORIA   = "CATEGORIA"
-        const val TABLE_LOCAL       = "LOCAL"
-        const val TABLE_RESERVA     = "RESERVA"
-        const val TABLE_METODOPAGO  = "METODOPAGO"
-        const val TABLE_SERVICIO    = "SERVICIO"
-        const val TABLE_FAVORITO    = "FAVORITO"
-        const val TABLE_VALORACION  = "VALORACION"
-        const val TABLE_IMAGENLOCAL = "IMAGENLOCAL"
-        const val TABLE_HORARIOLOCAL= "HORARIOLOCAL"
+        const val TABLE_USUARIO      = "USUARIO"
+        const val TABLE_CATEGORIA    = "CATEGORIA"
+        const val TABLE_LOCAL        = "LOCAL"
+        const val TABLE_RESERVA      = "RESERVA"
+        const val TABLE_METODOPAGO   = "METODOPAGO"
+        const val TABLE_SERVICIO     = "SERVICIO"
+        const val TABLE_FAVORITO     = "FAVORITO"
+        const val TABLE_VALORACION   = "VALORACION"
+        const val TABLE_IMAGENLOCAL  = "IMAGENLOCAL"
+        const val TABLE_HORARIOLOCAL = "HORARIOLOCAL"
+        const val TABLE_CONVERSACION = "CONVERSACION"
+        const val TABLE_MENSAJE      = "MENSAJE"
 
         private const val CREATE_TABLE_USUARIO = """
         CREATE TABLE USUARIO (
@@ -130,6 +132,31 @@ class OrioRentDBHelper(context: Context) :
             id_local      INTEGER,
             FOREIGN KEY (id_local) REFERENCES LOCAL(id_local)
         )"""
+
+        private const val CREATE_TABLE_CONVERSACION = """
+        CREATE TABLE CONVERSACION (
+            id_conversacion      INTEGER PRIMARY KEY AUTOINCREMENT,
+            id_usuario1          INTEGER NOT NULL,
+            id_usuario2          INTEGER NOT NULL,
+            id_local             INTEGER NOT NULL,
+            ultimo_mensaje       TEXT DEFAULT '',
+            ultima_fecha         TEXT DEFAULT '',
+            FOREIGN KEY (id_usuario1) REFERENCES USUARIO(id_usuario),
+            FOREIGN KEY (id_usuario2) REFERENCES USUARIO(id_usuario),
+            FOREIGN KEY (id_local)    REFERENCES LOCAL(id_local)
+        )"""
+
+        private const val CREATE_TABLE_MENSAJE = """
+        CREATE TABLE MENSAJE (
+            id_mensaje       INTEGER PRIMARY KEY AUTOINCREMENT,
+            id_conversacion  INTEGER NOT NULL,
+            id_remitente     INTEGER NOT NULL,
+            contenido        TEXT NOT NULL,
+            fecha_hora       TEXT NOT NULL,
+            leido            INTEGER DEFAULT 0,
+            FOREIGN KEY (id_conversacion) REFERENCES CONVERSACION(id_conversacion),
+            FOREIGN KEY (id_remitente)    REFERENCES USUARIO(id_usuario)
+        )"""
     }
 
     override fun onCreate(db: SQLiteDatabase) {
@@ -143,11 +170,14 @@ class OrioRentDBHelper(context: Context) :
         db.execSQL(CREATE_TABLE_VALORACION)
         db.execSQL(CREATE_TABLE_IMAGENLOCAL)
         db.execSQL(CREATE_TABLE_HORARIOLOCAL)
+        db.execSQL(CREATE_TABLE_CONVERSACION)
+        db.execSQL(CREATE_TABLE_MENSAJE)
         insertarDatosIniciales(db)
     }
 
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
-        listOf(TABLE_HORARIOLOCAL, TABLE_IMAGENLOCAL, TABLE_VALORACION,
+        listOf(TABLE_MENSAJE, TABLE_CONVERSACION,
+            TABLE_HORARIOLOCAL, TABLE_IMAGENLOCAL, TABLE_VALORACION,
             TABLE_FAVORITO, TABLE_SERVICIO, TABLE_METODOPAGO,
             TABLE_RESERVA, TABLE_LOCAL, TABLE_CATEGORIA, TABLE_USUARIO)
             .forEach { db.execSQL("DROP TABLE IF EXISTS $it") }
@@ -371,6 +401,139 @@ class OrioRentDBHelper(context: Context) :
             "SELECT * FROM $TABLE_FAVORITO WHERE id_usuario = ? AND id_local = ?",
             arrayOf(idUsuario.toString(), idLocal.toString())
         ).use { it.count > 0 }
+
+    // ═══════════════════════════════════════════════ MENSAJERÍA ════
+
+    /**
+     * Obtiene o crea una conversación entre dos usuarios sobre un local.
+     * Evita duplicados: si ya existe devuelve la existente.
+     */
+    fun obtenerOCrearConversacion(idUsuario1: Int, idUsuario2: Int, idLocal: Int): Int {
+        val db = writableDatabase
+        // Buscar conversación existente (en cualquier orden de usuarios)
+        val cursor = db.rawQuery(
+            """SELECT id_conversacion FROM $TABLE_CONVERSACION
+               WHERE id_local = ?
+               AND ((id_usuario1 = ? AND id_usuario2 = ?)
+                 OR (id_usuario1 = ? AND id_usuario2 = ?))""",
+            arrayOf(idLocal.toString(),
+                idUsuario1.toString(), idUsuario2.toString(),
+                idUsuario2.toString(), idUsuario1.toString())
+        )
+        if (cursor.moveToFirst()) {
+            val id = cursor.getInt(0)
+            cursor.close()
+            return id
+        }
+        cursor.close()
+        // Crear nueva conversación
+        val values = ContentValues().apply {
+            put("id_usuario1", idUsuario1)
+            put("id_usuario2", idUsuario2)
+            put("id_local", idLocal)
+            put("ultimo_mensaje", "")
+            put("ultima_fecha", SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date()))
+        }
+        return db.insert(TABLE_CONVERSACION, null, values).toInt()
+    }
+
+    fun insertarMensaje(idConversacion: Int, idRemitente: Int, contenido: String, fechaHora: String): Long {
+        return try {
+            val db = writableDatabase
+            // Insertar mensaje
+            val id = db.insert(TABLE_MENSAJE, null, ContentValues().apply {
+                put("id_conversacion", idConversacion)
+                put("id_remitente", idRemitente)
+                put("contenido", contenido)
+                put("fecha_hora", fechaHora)
+                put("leido", 0)
+            })
+            // Actualizar último mensaje en la conversación
+            db.update(TABLE_CONVERSACION, ContentValues().apply {
+                put("ultimo_mensaje", contenido)
+                put("ultima_fecha", fechaHora)
+            }, "id_conversacion = ?", arrayOf(idConversacion.toString()))
+            id
+        } catch (e: Exception) {
+            Log.e("DB", "insertarMensaje: ${e.message}"); -1L
+        }
+    }
+
+    fun obtenerMensajesConversacion(idConversacion: Int): List<Mensaje> {
+        val lista = mutableListOf<Mensaje>()
+        readableDatabase.rawQuery(
+            "SELECT * FROM $TABLE_MENSAJE WHERE id_conversacion = ? ORDER BY fecha_hora ASC",
+            arrayOf(idConversacion.toString())
+        ).use { c ->
+            while (c.moveToNext()) {
+                lista.add(Mensaje(
+                    id_mensaje       = c.getInt(0),
+                    id_conversacion  = c.getInt(1),
+                    id_remitente     = c.getInt(2),
+                    contenido        = c.getString(3),
+                    fecha_hora       = c.getString(4),
+                    leido            = c.getInt(5) == 1
+                ))
+            }
+        }
+        return lista
+    }
+
+    fun obtenerConversacionesUsuario(idUsuario: Int): List<Conversacion> {
+        val lista = mutableListOf<Conversacion>()
+        readableDatabase.rawQuery(
+            """SELECT c.*,
+                      (SELECT COUNT(*) FROM $TABLE_MENSAJE m
+                       WHERE m.id_conversacion = c.id_conversacion
+                       AND m.id_remitente != ? AND m.leido = 0) AS no_leidos
+               FROM $TABLE_CONVERSACION c
+               WHERE c.id_usuario1 = ? OR c.id_usuario2 = ?
+               ORDER BY c.ultima_fecha DESC""",
+            arrayOf(idUsuario.toString(), idUsuario.toString(), idUsuario.toString())
+        ).use { c ->
+            while (c.moveToNext()) {
+                lista.add(Conversacion(
+                    id_conversacion     = c.getInt(0),
+                    id_usuario1         = c.getInt(1),
+                    id_usuario2         = c.getInt(2),
+                    id_local            = c.getInt(3),
+                    ultimo_mensaje      = c.getString(4),
+                    ultima_fecha        = c.getString(5),
+                    mensajes_no_leidos  = c.getInt(6)
+                ))
+            }
+        }
+        return lista
+    }
+
+    fun obtenerConversacionPorId(idConversacion: Int): Conversacion? {
+        readableDatabase.rawQuery(
+            "SELECT *, 0 as no_leidos FROM $TABLE_CONVERSACION WHERE id_conversacion = ?",
+            arrayOf(idConversacion.toString())
+        ).use { c ->
+            if (c.moveToFirst()) return Conversacion(
+                id_conversacion    = c.getInt(0),
+                id_usuario1        = c.getInt(1),
+                id_usuario2        = c.getInt(2),
+                id_local           = c.getInt(3),
+                ultimo_mensaje     = c.getString(4),
+                ultima_fecha       = c.getString(5),
+                mensajes_no_leidos = 0
+            )
+        }
+        return null
+    }
+
+    fun marcarMensajesLeidos(idConversacion: Int, idUsuarioLector: Int) {
+        try {
+            writableDatabase.execSQL(
+                """UPDATE $TABLE_MENSAJE SET leido = 1
+                   WHERE id_conversacion = ? AND id_remitente != ?""",
+                arrayOf(idConversacion.toString(), idUsuarioLector.toString())
+            )
+        } catch (e: Exception) { Log.e("DB", "marcarLeidos: ${e.message}") }
+    }
+
 }
 
 // ═════════════════════════════════════════════════════════ MODELOS ════
@@ -394,4 +557,23 @@ data class Reserva(
     val id_reserva: Int, val fecha_inicio: String, val fecha_fin: String,
     val estado: String, val precio_total: Double,
     val id_usuario: Int, val id_local: Int
+)
+
+data class Conversacion(
+    val id_conversacion: Int,
+    val id_usuario1: Int,
+    val id_usuario2: Int,
+    val id_local: Int,
+    val ultimo_mensaje: String,
+    val ultima_fecha: String,
+    val mensajes_no_leidos: Int = 0
+)
+
+data class Mensaje(
+    val id_mensaje: Int,
+    val id_conversacion: Int,
+    val id_remitente: Int,
+    val contenido: String,
+    val fecha_hora: String,
+    val leido: Boolean
 )

@@ -39,7 +39,8 @@ fun LocalDetailsScreen(
     usuarioEmail: String,
     onBackClick: () -> Unit,
     onReservaSuccess: () -> Unit,
-    onOwnerClick: (String) -> Unit = {}
+    onOwnerClick: (String) -> Unit = {},
+    onContactarClick: (Int) -> Unit = {}   // idConversacion
 ) {
     val context = LocalContext.current
     val dbHelper = remember { OrioRentDBHelper(context) }
@@ -215,6 +216,20 @@ fun LocalDetailsScreen(
                                     Column(Modifier.weight(1f)) {
                                         Text(propietario.nombre, fontWeight = FontWeight.Bold, fontSize = 16.sp)
                                         Text("Ver perfil →", color = Color(0xFF1A4A7A), fontSize = 13.sp)
+                                    }
+                                    // Botón Contactar
+                                    Button(
+                                        onClick = {
+                                            val idConv = dbHelper.obtenerOCrearConversacion(
+                                                idUsuario, propietario.id_usuario, idLocal
+                                            )
+                                            onContactarClick(idConv)
+                                        },
+                                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1A4A7A)),
+                                        shape = RoundedCornerShape(8.dp),
+                                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                                    ) {
+                                        Text("Contactar", fontSize = 13.sp)
                                     }
                                 }
                             }
