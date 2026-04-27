@@ -141,9 +141,8 @@ fun LoginScreen(
                 isLoading = true
                 scope.launch {
                     try {
-                        val dbHelper = OrioRentDBHelper(context)
+                        val dbHelper = OrioRentDB
                         val loginExitoso = dbHelper.verificarLogin(email, contrasena)
-                        dbHelper.close()
                         isLoading = false
 
                         if (loginExitoso) {

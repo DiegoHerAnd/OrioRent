@@ -7,12 +7,19 @@ import androidx.activity.compose.setContent
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         Log.d("MainActivity", "App iniciada")
         setContent { MaterialTheme { OrioRentApp() } }
+
+        lifecycleScope.launch {
+            val cats = SupabaseRepository.obtenerCategorias()
+            Log.d("SUPABASE_TEST", "Categorías: ${cats.size} → $cats")
+        }
     }
 }
 

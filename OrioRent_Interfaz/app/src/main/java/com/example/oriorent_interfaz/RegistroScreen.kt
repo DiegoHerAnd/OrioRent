@@ -166,9 +166,8 @@ fun RegistroScreen(
                         isLoading = true
                         scope.launch {
                             try {
-                                val dbHelper = OrioRentDBHelper(context)
+                                val dbHelper = OrioRentDB
                                 val resultado = dbHelper.insertarUsuario(nombre, email, contrasena)
-                                dbHelper.close()
                                 isLoading = false
 
                                 if (resultado != -1L) {
