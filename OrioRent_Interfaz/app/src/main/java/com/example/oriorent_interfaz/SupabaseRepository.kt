@@ -1,17 +1,18 @@
 package com.example.oriorent_interfaz
 
 import android.util.Log
+import com.example.oriorent_interfaz.SupabaseManager.client
 import io.github.jan.supabase.postgrest.postgrest
 import io.github.jan.supabase.postgrest.query.Order
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import java.text.SimpleDateFormat
+import io.github.jan.supabase.auth.auth
+import io.github.jan.supabase.auth.providers.builtin.Email
+import io.github.jan.supabase.postgrest.from
 import java.util.*
 
 // ═══════════════════════════════════════════════════ MODELOS SUPABASE ════
-// Estos data classes se usan para serializar/deserializar con Supabase.
-// Son equivalentes a los modelos del DBHelper pero anotados con @Serializable.
-
 @Serializable
 data class UsuarioSB(
     @SerialName("id_usuario")     val id_usuario: Int = 0,
@@ -102,53 +103,48 @@ object SupabaseRepository {
 
     // ══════════════════════════════════════════════════════ USUARIOS ════
 
-    /**
-     * Inserta un nuevo usuario. Devuelve el id generado, o -1 si falla.
-     * Equivale a: insertarUsuario()
-     */
+    // REGISTRO: crea usuario en Supabase Auth + en tu tabla usuario
     suspend fun insertarUsuario(nombre: String, email: String, contrasena: String): Int {
         return try {
-            val result = db["usuario"].insert(
-                UsuarioSB(
-                    nombre         = nombre,
-                    email          = email.lowercase().trim(),
-                    contrasena     = contrasena,
-                    fecha_registro = hoy()
-                )
-            ) { select() }
-                .decodeSingle<UsuarioSB>()
-            result.id_usuario
+            // 1. Crear en Supabase Auth
+            client.auth.signUpWith(Email) {
+                this.email    = email.lowercase().trim()
+                this.password = contrasena
+            }
+            // 2. Guardar en tu tabla usuario y obtener el ID
+            val user = db.from("usuario").insert(UsuarioSB(
+                nombre = nombre,
+                email = email.lowercase().trim(),
+                contrasena = contrasena,
+                fecha_registro = hoy()
+            )) { select() }.decodeSingle<UsuarioSB>()
+            
+            user.id_usuario
         } catch (e: Exception) {
-            Log.e(TAG, "insertarUsuario error", e)
+            Log.e("Supabase", "insertarUsuario error", e)
             -1
         }
     }
 
-    /**
-     * Comprueba email + contraseña. Devuelve true si son correctos.
-     * Equivale a: verificarLogin()
-     */
+    // LOGIN: usa Supabase Auth
     suspend fun verificarLogin(email: String, contrasena: String): Boolean {
         return try {
-            val result = db["usuario"]
-                .select {
-                    filter {
-                        eq("email",     email.lowercase().trim())
-                        eq("contrasena", contrasena)
-                    }
-                }
-                .decodeList<UsuarioSB>()
-            result.isNotEmpty()
+            client.auth.signInWith(Email) {
+                this.email    = email.lowercase().trim()
+                this.password = contrasena
+            }
+            true
         } catch (e: Exception) {
-            Log.e(TAG, "verificarLogin error", e)
+            Log.e("Supabase", "verificarLogin error", e)
             false
         }
     }
 
-    /**
-     * Busca un usuario por su email. Devuelve Usuario (modelo local) o null.
-     * Equivale a: obtenerUsuarioPorEmail()
-     */
+    // LOGOUT
+    suspend fun cerrarSesion() {
+        try { client.auth.signOut() } catch (e: Exception) { }
+    }
+
     suspend fun obtenerUsuarioPorEmail(email: String): Usuario? {
         return try {
             val result = db["usuario"]
@@ -162,10 +158,6 @@ object SupabaseRepository {
         }
     }
 
-    /**
-     * Busca un usuario por su id. Devuelve Usuario (modelo local) o null.
-     * Equivale a: obtenerUsuarioPorId()
-     */
     suspend fun obtenerUsuarioPorId(id: Int): Usuario? {
         return try {
             val result = db["usuario"]
@@ -181,10 +173,6 @@ object SupabaseRepository {
 
     // ══════════════════════════════════════════════════ CATEGORÍAS ════
 
-    /**
-     * Devuelve todas las categorías.
-     * Equivale a: obtenerCategorias()
-     */
     suspend fun obtenerCategorias(): List<Categoria> {
         return try {
             val res = db["categoria"].select().decodeList<CategoriaSB>()
@@ -198,10 +186,6 @@ object SupabaseRepository {
 
     // ════════════════════════════════════════════════════ LOCALES ════
 
-    /**
-     * Inserta un nuevo local. Devuelve el id generado, o -1 si falla.
-     * Equivale a: insertarLocal()
-     */
     suspend fun insertarLocal(
         nombre: String, descripcion: String, direccion: String,
         capacidad: Int, precioBase: Double, tipoPrecio: String,
@@ -228,10 +212,6 @@ object SupabaseRepository {
         }
     }
 
-    /**
-     * Devuelve todos los locales.
-     * Equivale a: obtenerLocales()
-     */
     suspend fun obtenerLocales(): List<Local> {
         return try {
             db["local"].select().decodeList<LocalSB>().map { it.toLocal() }
@@ -241,10 +221,6 @@ object SupabaseRepository {
         }
     }
 
-    /**
-     * Devuelve un local por su id, o null si no existe.
-     * Equivale a: obtenerLocalPorId()
-     */
     suspend fun obtenerLocalPorId(idLocal: Int): Local? {
         return try {
             db["local"]
@@ -260,10 +236,6 @@ object SupabaseRepository {
 
     // ══════════════════════════════════════════════════ IMÁGENES ════
 
-    /**
-     * Guarda la URL de una imagen asociada a un local. Devuelve el id o -1 si falla.
-     * Equivale a: insertarImagenLocal()
-     */
     suspend fun insertarImagenLocal(idLocal: Int, urlImagen: String): Int {
         return try {
             val result = db["imagenlocal"].insert(
@@ -277,10 +249,6 @@ object SupabaseRepository {
         }
     }
 
-    /**
-     * Devuelve la lista de URLs de imágenes de un local.
-     * Equivale a: obtenerImagenesLocal()
-     */
     suspend fun obtenerImagenesLocal(idLocal: Int): List<String> {
         return try {
             db["imagenlocal"]
@@ -295,13 +263,6 @@ object SupabaseRepository {
 
     // ══════════════════════════════════════════════════ RESERVAS ════
 
-    /**
-     * Comprueba si un local está disponible en el rango dado.
-     * Equivale a: verificarDisponibilidad()
-     *
-     * Nota: Supabase no soporta filtros de solapamiento directamente en el cliente,
-     * así que traemos las reservas activas del local y comprobamos en memoria.
-     */
     suspend fun verificarDisponibilidad(idLocal: Int, fechaInicio: String, fechaFin: String): Boolean {
         return try {
             val reservas = db["reserva"]
@@ -313,7 +274,6 @@ object SupabaseRepository {
                 }
                 .decodeList<ReservaSB>()
 
-            // Solapamiento: inicio < fechaFin AND fin > fechaInicio
             reservas.none { r ->
                 r.fecha_inicio < fechaFin && r.fecha_fin > fechaInicio
             }
@@ -323,10 +283,6 @@ object SupabaseRepository {
         }
     }
 
-    /**
-     * Inserta una reserva confirmada. Devuelve el id generado o -1 si falla.
-     * Equivale a: insertarReserva()
-     */
     suspend fun insertarReserva(
         idUsuario: Int, idLocal: Int,
         fechaInicio: String, fechaFin: String, precioTotal: Double
@@ -350,10 +306,6 @@ object SupabaseRepository {
         }
     }
 
-    /**
-     * Devuelve las reservas de un usuario ordenadas por fecha descendente.
-     * Equivale a: obtenerReservasUsuario()
-     */
     suspend fun obtenerReservasUsuario(idUsuario: Int): List<Reserva> {
         return try {
             db["reserva"]
@@ -369,10 +321,6 @@ object SupabaseRepository {
         }
     }
 
-    /**
-     * Cancela una reserva (cambia estado a "Cancelada"). Devuelve true si tuvo éxito.
-     * Equivale a: cancelarReserva()
-     */
     suspend fun cancelarReserva(idReserva: Int): Boolean {
         return try {
             db["reserva"].update(
@@ -389,10 +337,6 @@ object SupabaseRepository {
 
     // ══════════════════════════════════════════════════ FAVORITOS ════
 
-    /**
-     * Añade o elimina un favorito (toggle). Devuelve true si ahora ES favorito.
-     * Equivale a: toggleFavorito()
-     */
     suspend fun toggleFavorito(idUsuario: Int, idLocal: Int): Boolean {
         return try {
             val existente = db["favorito"]
@@ -412,10 +356,10 @@ object SupabaseRepository {
                         eq("id_local", idLocal)
                     }
                 }
-                false   // Ya no es favorito
+                false
             } else {
                 db["favorito"].insert(FavoritoSB(id_usuario = idUsuario, id_local = idLocal))
-                true    // Ahora sí es favorito
+                true
             }
         } catch (e: Exception) {
             Log.e(TAG, "toggleFavorito error", e)
@@ -423,10 +367,6 @@ object SupabaseRepository {
         }
     }
 
-    /**
-     * Comprueba si un local es favorito del usuario.
-     * Equivale a: esFavorito()
-     */
     suspend fun esFavorito(idUsuario: Int, idLocal: Int): Boolean {
         return try {
             db["favorito"]
@@ -446,13 +386,8 @@ object SupabaseRepository {
 
     // ══════════════════════════════════════════════════ MENSAJERÍA ════
 
-    /**
-     * Obtiene o crea una conversación entre dos usuarios sobre un local.
-     * Equivale a: obtenerOCrearConversacion()
-     */
     suspend fun obtenerOCrearConversacion(idUsuario1: Int, idUsuario2: Int, idLocal: Int): Int {
         return try {
-            // Buscar en ambos órdenes de usuarios
             val existente = db["conversacion"]
                 .select {
                     filter {
@@ -474,7 +409,6 @@ object SupabaseRepository {
 
             if (existente != null) return existente.id_conversacion
 
-            // Crear nueva conversación
             val nueva = db["conversacion"].insert(
                 ConversacionSB(
                     id_usuario1   = idUsuario1,
@@ -492,10 +426,6 @@ object SupabaseRepository {
         }
     }
 
-    /**
-     * Inserta un mensaje y actualiza el último mensaje de la conversación.
-     * Equivale a: insertarMensaje()
-     */
     suspend fun insertarMensaje(
         idConversacion: Int, idRemitente: Int,
         contenido: String, fechaHora: String
@@ -512,7 +442,6 @@ object SupabaseRepository {
             ) { select() }
                 .decodeSingle<MensajeSB>()
 
-            // Actualizar último mensaje en la conversación
             db["conversacion"].update(
                 mapOf("ultimo_mensaje" to contenido, "ultima_fecha" to fechaHora)
             ) {
@@ -526,10 +455,6 @@ object SupabaseRepository {
         }
     }
 
-    /**
-     * Devuelve los mensajes de una conversación ordenados por fecha ascendente.
-     * Equivale a: obtenerMensajesConversacion()
-     */
     suspend fun obtenerMensajesConversacion(idConversacion: Int): List<Mensaje> {
         return try {
             db["mensaje"]
@@ -545,13 +470,6 @@ object SupabaseRepository {
         }
     }
 
-    /**
-     * Devuelve todas las conversaciones de un usuario con conteo de no leídos.
-     * Equivale a: obtenerConversacionesUsuario()
-     *
-     * Nota: El conteo de no leídos se calcula en memoria porque Supabase
-     * no permite subconsultas de agregado directas desde el cliente Kotlin.
-     */
     suspend fun obtenerConversacionesUsuario(idUsuario: Int): List<Conversacion> {
         return try {
             val conversaciones = db["conversacion"]
@@ -567,7 +485,6 @@ object SupabaseRepository {
                 .decodeList<ConversacionSB>()
 
             conversaciones.map { conv ->
-                // Contar mensajes no leídos de otros en esta conversación
                 val noLeidos = try {
                     db["mensaje"]
                         .select {
@@ -589,10 +506,6 @@ object SupabaseRepository {
         }
     }
 
-    /**
-     * Devuelve una conversación por su id, o null si no existe.
-     * Equivale a: obtenerConversacionPorId()
-     */
     suspend fun obtenerConversacionPorId(idConversacion: Int): Conversacion? {
         return try {
             db["conversacion"]
@@ -606,10 +519,6 @@ object SupabaseRepository {
         }
     }
 
-    /**
-     * Marca como leídos todos los mensajes de una conversación que no sean del lector.
-     * Equivale a: marcarMensajesLeidos()
-     */
     suspend fun marcarMensajesLeidos(idConversacion: Int, idUsuarioLector: Int) {
         try {
             db["mensaje"].update(
@@ -628,9 +537,6 @@ object SupabaseRepository {
 }
 
 // ═══════════════════════════════════════════ EXTENSIONES DE MAPEO ════
-// Convierten los modelos Supabase (SB) a los modelos locales existentes,
-// para que el resto de tu app no necesite cambiar.
-
 fun UsuarioSB.toLocal()     = Usuario(id_usuario, nombre, email, contrasena, fecha_registro)
 fun CategoriaSB.toLocal()   = Categoria(id_categoria, nombre, descripcion ?: "")
 fun LocalSB.toLocal()       = Local(id_local, nombre, descripcion ?: "", direccion ?: "",

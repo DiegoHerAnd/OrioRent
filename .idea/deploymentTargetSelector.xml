@@ -4,10 +4,10 @@
     <selectionStates>
       <SelectionState runConfigName="OrioRent_Interfaz.app">
         <option name="selectionMode" value="DROPDOWN" />
-        <DropdownSelection timestamp="2026-01-24T22:08:37.734622300Z">
+        <DropdownSelection timestamp="2026-04-30T15:13:23.163116486Z">
           <Target type="DEFAULT_BOOT">
             <handle>
-              <DeviceId pluginId="LocalEmulator" identifier="path=C:\Users\Diego\.android\avd\Small_Phone.avd" />
+              <DeviceId pluginId="LocalEmulator" identifier="path=/home/diego/.var/app/com.google.AndroidStudio/config/.android/avd/Small_Phone.avd" />
             </handle>
           </Target>
         </DropdownSelection>
