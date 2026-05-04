@@ -14,10 +14,9 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -30,8 +29,7 @@ fun PostalService(
     onBack: () -> Unit,
     onConversacionClick: (Int) -> Unit
 ) {
-    val context = LocalContext.current
-    val dbHelper = remember { OrioRentDBHelper(context) }
+    val dbHelper = OrioRentDB
     val usuario  = remember(usuarioEmail) { dbHelper.obtenerUsuarioPorEmail(usuarioEmail) }
     val idUsuario = usuario?.id_usuario ?: -1
 
@@ -92,7 +90,7 @@ fun PostalService(
 fun ConversacionItem(
     conv: Conversacion,
     idUsuarioActual: Int,
-    dbHelper: OrioRentDBHelper,
+    dbHelper: OrioRentDB,
     onClick: () -> Unit
 ) {
     // El "otro" usuario de la conversación

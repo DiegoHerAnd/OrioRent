@@ -103,39 +103,38 @@ object SupabaseRepository {
 
     // ══════════════════════════════════════════════════════ USUARIOS ════
 
-    // REGISTRO: crea usuario en Supabase Auth + en tu tabla usuario
+    // REGISTRO - sin Supabase Auth
     suspend fun insertarUsuario(nombre: String, email: String, contrasena: String): Int {
         return try {
-            // 1. Crear en Supabase Auth
-            client.auth.signUpWith(Email) {
-                this.email    = email.lowercase().trim()
-                this.password = contrasena
-            }
-            // 2. Guardar en tu tabla usuario y obtener el ID
-            val user = db.from("usuario").insert(UsuarioSB(
-                nombre = nombre,
-                email = email.lowercase().trim(),
-                contrasena = contrasena,
-                fecha_registro = hoy()
-            )) { select() }.decodeSingle<UsuarioSB>()
-            
+            val user = db.from("usuario").insert(
+                UsuarioSB(
+                    nombre         = nombre,
+                    email          = email.lowercase().trim(),
+                    contrasena     = contrasena,
+                    fecha_registro = hoy()
+                )
+            ) { select() }.decodeSingle<UsuarioSB>()
             user.id_usuario
         } catch (e: Exception) {
-            Log.e("Supabase", "insertarUsuario error", e)
+            Log.e("Supabase", "insertarUsuario error: ${e.message}")
             -1
         }
     }
 
-    // LOGIN: usa Supabase Auth
+    // LOGIN
     suspend fun verificarLogin(email: String, contrasena: String): Boolean {
         return try {
-            client.auth.signInWith(Email) {
-                this.email    = email.lowercase().trim()
-                this.password = contrasena
-            }
-            true
+            db.from("usuario")
+                .select {
+                    filter {
+                        eq("email",      email.lowercase().trim())
+                        eq("contrasena", contrasena)
+                    }
+                }
+                .decodeList<UsuarioSB>()
+                .isNotEmpty()
         } catch (e: Exception) {
-            Log.e("Supabase", "verificarLogin error", e)
+            Log.e("Supabase", "verificarLogin error: ${e.message}")
             false
         }
     }

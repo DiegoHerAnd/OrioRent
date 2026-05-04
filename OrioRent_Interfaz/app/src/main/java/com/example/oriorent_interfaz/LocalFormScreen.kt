@@ -40,7 +40,7 @@ fun LocalFormScreen(
     onSuccess: () -> Unit
 ) {
     val context = LocalContext.current
-    val dbHelper = remember { OrioRentDBHelper(context) }
+    val dbHelper = OrioRentDB
 
     var nombre      by remember { mutableStateOf("") }
     var descripcion by remember { mutableStateOf("") }

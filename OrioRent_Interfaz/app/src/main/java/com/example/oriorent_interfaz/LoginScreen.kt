@@ -148,6 +148,7 @@ fun LoginScreen(
                         if (loginExitoso) {
                             onLoginSuccess(email)
                         } else {
+                            val
                             mensaje = "Email o contraseña incorrectos"
                         }
                     } catch (e: Exception) {
