@@ -30,12 +30,15 @@ fun PostalService(
     onConversacionClick: (Int) -> Unit
 ) {
     val dbHelper = OrioRentDB
-    val usuario  = remember(usuarioEmail) { dbHelper.obtenerUsuarioPorEmail(usuarioEmail) }
+
+    var usuario by remember { mutableStateOf<Usuario?>(null) }
+    LaunchedEffect(usuarioEmail) { usuario = dbHelper.obtenerUsuarioPorEmail(usuarioEmail) }
     val idUsuario = usuario?.id_usuario ?: -1
 
     var refreshKey by remember { mutableIntStateOf(0) }
-    val conversaciones = remember(refreshKey, idUsuario) {
-        dbHelper.obtenerConversacionesUsuario(idUsuario)
+    var conversaciones by remember { mutableStateOf<List<Conversacion>>(emptyList()) }
+    LaunchedEffect(refreshKey, idUsuario) {
+        if (idUsuario != -1) conversaciones = dbHelper.obtenerConversacionesUsuario(idUsuario)
     }
 
     Scaffold(
@@ -95,8 +98,10 @@ fun ConversacionItem(
 ) {
     // El "otro" usuario de la conversación
     val idOtro = if (conv.id_usuario1 == idUsuarioActual) conv.id_usuario2 else conv.id_usuario1
-    val otroUsuario = remember(idOtro) { dbHelper.obtenerUsuarioPorId(idOtro) }
-    val local       = remember(conv.id_local) { dbHelper.obtenerLocalPorId(conv.id_local) }
+    var otroUsuario by remember { mutableStateOf<Usuario?>(null) }
+    LaunchedEffect(idOtro) { otroUsuario = dbHelper.obtenerUsuarioPorId(idOtro) }
+    var local by remember { mutableStateOf<Local?>(null) }
+    LaunchedEffect(conv.id_local) { local = dbHelper.obtenerLocalPorId(conv.id_local) }
     val inicial     = otroUsuario?.nombre?.take(1)?.uppercase() ?: "?"
 
     val tieneNoLeidos = conv.mensajes_no_leidos > 0

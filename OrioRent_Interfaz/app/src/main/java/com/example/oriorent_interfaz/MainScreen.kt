@@ -22,6 +22,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -35,13 +36,17 @@ fun MainScreen(
     onProfileScreen: () -> Unit
 ) {
     var searchText by remember { mutableStateOf("") }
-    
+
     val dbHelper = OrioRentDB
-    val usuario = remember(usuarioEmail) { dbHelper.obtenerUsuarioPorEmail(usuarioEmail) }
+    val scope = rememberCoroutineScope()
+
+    var usuario by remember { mutableStateOf<Usuario?>(null) }
+    LaunchedEffect(usuarioEmail) { usuario = dbHelper.obtenerUsuarioPorEmail(usuarioEmail) }
     val idUsuario = usuario?.id_usuario ?: -1
-    
+
     var refreshLocales by remember { mutableIntStateOf(0) }
-    val localesOriginales by remember(refreshLocales) { mutableStateOf(dbHelper.obtenerLocales()) }
+    var localesOriginales by remember { mutableStateOf<List<Local>>(emptyList()) }
+    LaunchedEffect(refreshLocales) { localesOriginales = dbHelper.obtenerLocales() }
 
     val localesFiltrados = remember(searchText, localesOriginales) {
         if (searchText.isBlank()) {
@@ -175,13 +180,16 @@ fun MainScreen(
                     horizontalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
                     items(localesFiltrados) { local ->
-                        var isFav by remember { mutableStateOf(dbHelper.esFavorito(idUsuario, local.id_local)) }
+                        var isFav by remember { mutableStateOf(false) }
+                        LaunchedEffect(idUsuario, local.id_local) { isFav = dbHelper.esFavorito(idUsuario, local.id_local) }
                         FeaturedLocalCard(
                             local = local,
                             isFavorite = isFav,
                             onFavoriteToggle = {
-                                isFav = dbHelper.toggleFavorito(idUsuario, local.id_local)
-                                refreshLocales++
+                                scope.launch {
+                                    isFav = dbHelper.toggleFavorito(idUsuario, local.id_local)
+                                    refreshLocales++
+                                }
                             },
                             onClick = { onLocalClick(local.id_local) },
                             modifier = Modifier.width(200.dp)
@@ -202,13 +210,16 @@ fun MainScreen(
                     horizontalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
                     items(localesFiltrados.reversed()) { local ->
-                        var isFav by remember { mutableStateOf(dbHelper.esFavorito(idUsuario, local.id_local)) }
+                        var isFav by remember { mutableStateOf(false) }
+                        LaunchedEffect(idUsuario, local.id_local) { isFav = dbHelper.esFavorito(idUsuario, local.id_local) }
                         FeaturedLocalCard(
                             local = local,
                             isFavorite = isFav,
                             onFavoriteToggle = {
-                                isFav = dbHelper.toggleFavorito(idUsuario, local.id_local)
-                                refreshLocales++
+                                scope.launch {
+                                    isFav = dbHelper.toggleFavorito(idUsuario, local.id_local)
+                                    refreshLocales++
+                                }
                             },
                             onClick = { onLocalClick(local.id_local) },
                             modifier = Modifier.width(200.dp)

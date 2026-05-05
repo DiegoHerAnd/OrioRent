@@ -31,6 +31,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -41,6 +42,7 @@ fun LocalFormScreen(
 ) {
     val context = LocalContext.current
     val dbHelper = OrioRentDB
+    val scope = rememberCoroutineScope()
 
     var nombre      by remember { mutableStateOf("") }
     var descripcion by remember { mutableStateOf("") }
@@ -49,7 +51,8 @@ fun LocalFormScreen(
     var tipoPrecio  by remember { mutableStateOf("Día") }
     var idCategoria by remember { mutableIntStateOf(1) }
 
-    val categorias  = remember { dbHelper.obtenerCategorias() }
+    var categorias by remember { mutableStateOf<List<Categoria>>(emptyList()) }
+    LaunchedEffect(Unit) { categorias = dbHelper.obtenerCategorias() }
     val tiposPrecio = listOf("Hora", "Día", "Semana")
 
     var expandedTipo by remember { mutableStateOf(false) }
@@ -239,32 +242,33 @@ fun LocalFormScreen(
 
                     Button(
                         onClick = {
-                            // Validaciones
+                            // Validaciones síncronas antes del lanzamiento
                             when {
                                 nombre.isBlank() -> { errorMsg = "El título es obligatorio."; return@Button }
                                 descripcion.isBlank() -> { errorMsg = "La descripción es obligatoria."; return@Button }
                                 direccion.isBlank() -> { errorMsg = "La ubicación es obligatoria."; return@Button }
                                 precioBase.toDoubleOrNull() == null -> { errorMsg = "Introduce un precio válido."; return@Button }
                             }
-                            val usuario = dbHelper.obtenerUsuarioPorEmail(usuarioEmail)
-                            val idLocal = dbHelper.insertarLocal(
-                                nombre = nombre,
-                                descripcion = descripcion,
-                                direccion = direccion,
-                                capacidad = 50,
-                                precioBase = precioBase.toDouble(),
-                                tipoPrecio = tipoPrecio,
-                                idPropietario = usuario?.id_usuario ?: 1,
-                                idCategoria = idCategoria
-                            )
-                            if (idLocal != -1L) {
-                                // Guardamos las imágenes en la BD
-                                imagenes.forEach { uri ->
-                                    dbHelper.insertarImagenLocal(idLocal.toInt(), uri.toString())
+                            scope.launch {
+                                val usuario = dbHelper.obtenerUsuarioPorEmail(usuarioEmail)
+                                val idLocal = dbHelper.insertarLocal(
+                                    nombre = nombre,
+                                    descripcion = descripcion,
+                                    direccion = direccion,
+                                    capacidad = 50,
+                                    precioBase = precioBase.toDouble(),
+                                    tipoPrecio = tipoPrecio,
+                                    idPropietario = usuario?.id_usuario ?: 1,
+                                    idCategoria = idCategoria
+                                )
+                                if (idLocal != -1L) {
+                                    imagenes.forEach { uri ->
+                                        dbHelper.insertarImagenLocal(idLocal.toInt(), uri.toString())
+                                    }
+                                    onSuccess()
+                                } else {
+                                    errorMsg = "Error al guardar el local. Inténtalo de nuevo."
                                 }
-                                onSuccess()
-                            } else {
-                                errorMsg = "Error al guardar el local. Inténtalo de nuevo."
                             }
                         },
                         modifier = Modifier.fillMaxWidth().height(48.dp),

@@ -30,23 +30,30 @@ fun ChatScreen(
     usuarioEmail: String,
     onBackClick: () -> Unit
 ) {
-    val dbHelper  = OrioRentDB
-    val usuario   = remember(usuarioEmail) { dbHelper.obtenerUsuarioPorEmail(usuarioEmail) }
+    val dbHelper = OrioRentDB
+
+    var usuario by remember { mutableStateOf<Usuario?>(null) }
+    LaunchedEffect(usuarioEmail) { usuario = dbHelper.obtenerUsuarioPorEmail(usuarioEmail) }
     val idUsuario = usuario?.id_usuario ?: -1
 
-    val conversacion = remember(idConversacion) { dbHelper.obtenerConversacionPorId(idConversacion) }
+    var conversacion by remember { mutableStateOf<Conversacion?>(null) }
+    LaunchedEffect(idConversacion) { conversacion = dbHelper.obtenerConversacionPorId(idConversacion) }
+
     val idOtro = remember(conversacion, idUsuario) {
         if (conversacion?.id_usuario1 == idUsuario) conversacion?.id_usuario2 else conversacion?.id_usuario1
     } ?: -1
-    val otroUsuario = remember(idOtro) { dbHelper.obtenerUsuarioPorId(idOtro) }
-    val local       = remember(conversacion) { conversacion?.let { dbHelper.obtenerLocalPorId(it.id_local) } }
+
+    var otroUsuario by remember { mutableStateOf<Usuario?>(null) }
+    LaunchedEffect(idOtro) { if (idOtro != -1) otroUsuario = dbHelper.obtenerUsuarioPorId(idOtro) }
+
+    var local by remember { mutableStateOf<Local?>(null) }
+    LaunchedEffect(conversacion) { conversacion?.let { local = dbHelper.obtenerLocalPorId(it.id_local) } }
 
     var refreshKey by remember { mutableIntStateOf(0) }
-    val mensajes = remember(refreshKey) {
-        dbHelper.obtenerMensajesConversacion(idConversacion).also {
-            // Marcar como leídos los mensajes del otro al abrir el chat
-            dbHelper.marcarMensajesLeidos(idConversacion, idUsuario)
-        }
+    var mensajes by remember { mutableStateOf<List<Mensaje>>(emptyList()) }
+    LaunchedEffect(refreshKey) {
+        mensajes = dbHelper.obtenerMensajesConversacion(idConversacion)
+        if (idUsuario != -1) dbHelper.marcarMensajesLeidos(idConversacion, idUsuario)
     }
 
     var textoMensaje by remember { mutableStateOf("") }
@@ -119,15 +126,15 @@ fun ChatScreen(
                             val texto = textoMensaje.trim()
                             if (texto.isNotEmpty()) {
                                 val fecha = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date())
-                                dbHelper.insertarMensaje(
-                                    idConversacion = idConversacion,
-                                    idRemitente    = idUsuario,
-                                    contenido      = texto,
-                                    fechaHora      = fecha
-                                )
-                                textoMensaje = ""
-                                refreshKey++
                                 scope.launch {
+                                    dbHelper.insertarMensaje(
+                                        idConversacion = idConversacion,
+                                        idRemitente    = idUsuario,
+                                        contenido      = texto,
+                                        fechaHora      = fecha
+                                    )
+                                    textoMensaje = ""
+                                    refreshKey++
                                     if (mensajes.isNotEmpty()) listState.animateScrollToItem(mensajes.size)
                                 }
                             }
