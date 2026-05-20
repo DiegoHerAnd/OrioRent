@@ -1,6 +1,7 @@
 package com.example.oriorent_interfaz
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -13,33 +14,43 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MyBookingsScreen(
     usuarioEmail: String,
-    onBackClick: () -> Unit
+    onBackClick: () -> Unit,
+    onLocalClick: (Int) -> Unit
 ) {
-    val context = LocalContext.current
-    val dbHelper = remember { OrioRentDBHelper(context) }
-    val usuario = remember(usuarioEmail) { dbHelper.obtenerUsuarioPorEmail(usuarioEmail) }
+    val dbHelper = OrioRentDB
+    val scope = rememberCoroutineScope()
+    var usuario by remember(usuarioEmail) { mutableStateOf<Usuario?>(null) }
     val idUsuario = usuario?.id_usuario ?: -1
 
     // refreshKey fuerza la relecture de la BD cuando se cancela
     var refreshKey by remember { mutableIntStateOf(0) }
-    val reservas by remember(refreshKey, idUsuario) { mutableStateOf(dbHelper.obtenerReservasUsuario(idUsuario)) }
+    var reservas by remember { mutableStateOf<List<Reserva>>(emptyList()) }
+    var localesPorId by remember { mutableStateOf<Map<Int, Local>>(emptyMap()) }
+    var cargandoReservas by remember { mutableStateOf(true) }
+
+    LaunchedEffect(usuarioEmail, refreshKey) {
+        cargandoReservas = true
+        val usuarioEncontrado = dbHelper.obtenerUsuarioPorEmail(usuarioEmail)
+        usuario = usuarioEncontrado
+        reservas = usuarioEncontrado?.let { dbHelper.obtenerReservasUsuario(it.id_usuario) }.orEmpty()
+        localesPorId = dbHelper.obtenerLocales().associateBy { it.id_local }
+        cargandoReservas = false
+    }
 
     var reservaACancelar by remember { mutableStateOf<Reserva?>(null) }
 
     // ── Diálogo de confirmación de cancelación ────────────────────────────
     if (reservaACancelar != null) {
-        val localNombre = remember(reservaACancelar) {
-            dbHelper.obtenerLocalPorId(reservaACancelar!!.id_local)?.nombre ?: "este local"
-        }
+        val localNombre = localesPorId[reservaACancelar!!.id_local]?.nombre ?: "este local"
         AlertDialog(
             onDismissRequest = { reservaACancelar = null },
             title = { Text("¿Cancelar reserva?", fontWeight = FontWeight.Bold) },
@@ -47,9 +58,11 @@ fun MyBookingsScreen(
             confirmButton = {
                 Button(
                     onClick = {
-                        dbHelper.cancelarReserva(reservaACancelar!!.id_reserva)
-                        reservaACancelar = null
-                        refreshKey++          // ← fuerza actualizar la lista
+                        scope.launch {
+                            dbHelper.cancelarReserva(reservaACancelar!!.id_reserva)
+                            reservaACancelar = null
+                            refreshKey++          // fuerza actualizar la lista
+                        }
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD32F2F))
                 ) { Text("Sí, cancelar") }
@@ -73,7 +86,11 @@ fun MyBookingsScreen(
             )
         }
     ) { pv ->
-        if (reservas.isEmpty()) {
+        if (cargandoReservas) {
+            Box(Modifier.fillMaxSize().padding(pv).background(Color.White), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator(color = Color(0xFF1A4A7A))
+            }
+        } else if (reservas.isEmpty()) {
             Box(Modifier.fillMaxSize().padding(pv).background(Color.White), contentAlignment = Alignment.Center) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(16.dp)) {
                     Text("📭", fontSize = 56.sp)
@@ -98,11 +115,11 @@ fun MyBookingsScreen(
                         Text("Reservas activas", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = Color(0xFF1A4A7A))
                     }
                     items(activas, key = { it.id_reserva }) { reserva ->
-                        val local = remember(reserva.id_local) { dbHelper.obtenerLocalPorId(reserva.id_local) }
                         BookingItem(
                             reserva = reserva,
-                            local = local,
-                            onCancelarClick = { reservaACancelar = reserva }
+                            local = localesPorId[reserva.id_local],
+                            onCancelarClick = { reservaACancelar = reserva },
+                            onLocalClick = { onLocalClick(reserva.id_local) }
                         )
                     }
                 }
@@ -113,8 +130,12 @@ fun MyBookingsScreen(
                         Text("Historial", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = Color.Gray)
                     }
                     items(historial, key = { it.id_reserva }) { reserva ->
-                        val local = remember(reserva.id_local) { dbHelper.obtenerLocalPorId(reserva.id_local) }
-                        BookingItem(reserva = reserva, local = local, onCancelarClick = null)
+                        BookingItem(
+                            reserva = reserva,
+                            local = localesPorId[reserva.id_local],
+                            onCancelarClick = null,
+                            onLocalClick = { onLocalClick(reserva.id_local) }
+                        )
                     }
                 }
 
@@ -128,7 +149,8 @@ fun MyBookingsScreen(
 fun BookingItem(
     reserva: Reserva,
     local: Local?,
-    onCancelarClick: (() -> Unit)?
+    onCancelarClick: (() -> Unit)?,
+    onLocalClick: () -> Unit
 ) {
     val cancelada = reserva.estado == "Cancelada"
     val estadoColor = when (reserva.estado) {
@@ -139,7 +161,9 @@ fun BookingItem(
     }
 
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onLocalClick() },
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(containerColor = if (cancelada) Color(0xFFF5F5F5) else Color(0xFFF0F2F5)),
         elevation = CardDefaults.cardElevation(if (cancelada) 0.dp else 2.dp)

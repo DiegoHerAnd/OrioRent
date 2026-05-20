@@ -23,6 +23,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.launch
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -36,6 +37,8 @@ fun MainScreen(
     onProfileScreen: () -> Unit
 ) {
     var searchText by remember { mutableStateOf("") }
+    var showCategories by remember { mutableStateOf(false) }
+    var selectedCategoryId by remember { mutableStateOf<Int?>(null) }
 
     val dbHelper = OrioRentDB
     val scope = rememberCoroutineScope()
@@ -48,16 +51,62 @@ fun MainScreen(
     var localesOriginales by remember { mutableStateOf<List<Local>>(emptyList()) }
     LaunchedEffect(refreshLocales) { localesOriginales = dbHelper.obtenerLocales() }
 
-    val localesFiltrados = remember(searchText, localesOriginales) {
-        if (searchText.isBlank()) {
-            localesOriginales
-        } else {
-            localesOriginales.filter {
-                it.nombre.contains(searchText, ignoreCase = true) ||
-                it.descripcion.contains(searchText, ignoreCase = true) ||
-                it.direccion.contains(searchText, ignoreCase = true)
-            }
+    var categorias by remember { mutableStateOf<List<Categoria>>(emptyList()) }
+    LaunchedEffect(Unit) { categorias = dbHelper.obtenerCategorias() }
+    val categoriasPorId = remember(categorias) { categorias.associateBy { it.id_categoria } }
+    val categoriaSeleccionada = selectedCategoryId?.let { categoriasPorId[it] }
+
+    val localesFiltrados = remember(searchText, selectedCategoryId, localesOriginales, categoriasPorId) {
+        localesOriginales.filter { local ->
+            val coincideCategoria = selectedCategoryId == null || local.id_categoria == selectedCategoryId
+            val categoriaNombre = categoriasPorId[local.id_categoria]?.nombre.orEmpty()
+            val coincideBusqueda = searchText.isBlank() ||
+                local.nombre.contains(searchText, ignoreCase = true) ||
+                local.descripcion.contains(searchText, ignoreCase = true) ||
+                local.direccion.contains(searchText, ignoreCase = true) ||
+                categoriaNombre.contains(searchText, ignoreCase = true)
+
+            coincideCategoria && coincideBusqueda
         }
+    }
+
+    fun categoryImage(idCategoria: Int): Int =
+        if (idCategoria == 1) R.drawable.fiesta else R.drawable.logooriorent
+
+    val categoriasVisibles = remember(categorias, localesOriginales) {
+        if (categorias.isNotEmpty()) {
+            categorias
+        } else {
+            localesOriginales
+                .map { local -> Categoria(local.id_categoria, "Categoria ${local.id_categoria}", "") }
+                .distinctBy { it.id_categoria }
+        }
+    }
+
+    val categoriasPopulares = remember(categoriasVisibles, localesOriginales) {
+        categoriasVisibles
+            .filter { categoria -> localesOriginales.any { it.id_categoria == categoria.id_categoria } }
+            .ifEmpty { categoriasVisibles }
+            .take(6)
+    }
+
+    val emptyMessage = when {
+        localesOriginales.isEmpty() -> "Aun no hay locales publicados."
+        categoriaSeleccionada != null -> "No hay locales en ${categoriaSeleccionada.nombre}."
+        searchText.isNotBlank() -> "No hay locales para \"$searchText\"."
+        else -> "No hay locales disponibles."
+    }
+
+    val emptyActionText = when {
+        selectedCategoryId != null && searchText.isNotBlank() -> "Quitar filtros"
+        selectedCategoryId != null -> "Ver todas las categorias"
+        searchText.isNotBlank() -> "Limpiar busqueda"
+        else -> ""
+    }
+
+    val clearFilters = {
+        searchText = ""
+        selectedCategoryId = null
     }
 
     Scaffold(
@@ -103,14 +152,45 @@ fun MainScreen(
                     }
 
                     Button(
-                        onClick = { /* Categorías */ },
+                        onClick = { showCategories = !showCategories },
                         modifier = Modifier.weight(1f),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1A4A7A)),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = if (showCategories || selectedCategoryId != null) Color(0xFF2C6AA0) else Color(0xFF1A4A7A)
+                        ),
                         shape = RoundedCornerShape(12.dp)
                     ) {
                         Icon(Icons.Default.List, contentDescription = null, modifier = Modifier.size(18.dp))
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text("CATEGORIAS", fontSize = 12.sp)
+                        Text(categoriaSeleccionada?.nombre?.uppercase() ?: "CATEGORIAS", fontSize = 12.sp, maxLines = 1)
+                    }
+                }
+
+                if (showCategories) {
+                    Spacer(modifier = Modifier.height(12.dp))
+                    LazyRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        contentPadding = PaddingValues(horizontal = 2.dp)
+                    ) {
+                        item {
+                            FilterChip(
+                                selected = selectedCategoryId == null,
+                                onClick = { selectedCategoryId = null },
+                                label = { Text("Todas") },
+                                leadingIcon = if (selectedCategoryId == null) {
+                                    { Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(16.dp)) }
+                                } else null
+                            )
+                        }
+                        items(categoriasVisibles) { categoria ->
+                            FilterChip(
+                                selected = selectedCategoryId == categoria.id_categoria,
+                                onClick = { selectedCategoryId = categoria.id_categoria },
+                                label = { Text(categoria.nombre, maxLines = 1) },
+                                leadingIcon = if (selectedCategoryId == categoria.id_categoria) {
+                                    { Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(16.dp)) }
+                                } else null
+                            )
+                        }
                     }
                 }
             }
@@ -163,9 +243,51 @@ fun MainScreen(
                     contentPadding = PaddingValues(horizontal = 16.dp),
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    item { CategoryItemCard("Fiesta", R.drawable.fiesta) }
-                    item { CategoryItemCard("Reunion", R.drawable.logooriorent) }
+                    items(categoriasPopulares) { categoria ->
+                        CategoryItemCard(
+                            title = categoria.nombre,
+                            imageRes = categoryImage(categoria.id_categoria),
+                            selected = selectedCategoryId == categoria.id_categoria,
+                            count = localesOriginales.count { it.id_categoria == categoria.id_categoria },
+                            onClick = {
+                                selectedCategoryId = if (selectedCategoryId == categoria.id_categoria) null else categoria.id_categoria
+                            }
+                        )
+                    }
                 }
+            }
+
+            if (selectedCategoryId != null || searchText.isNotBlank()) {
+                item {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            text = categoriaSeleccionada?.let { "${it.nombre} · ${localesFiltrados.size} resultados" }
+                                ?: "${localesFiltrados.size} resultados",
+                            color = Color.Gray,
+                            fontSize = 14.sp
+                        )
+                        TextButton(onClick = clearFilters) {
+                            Text("Limpiar")
+                        }
+                    }
+                }
+            }
+
+            if (localesFiltrados.isEmpty()) {
+                item {
+                    EmptyLocalResults(
+                        message = emptyMessage,
+                        actionText = emptyActionText,
+                        onActionClick = clearFilters
+                    )
+                }
+                return@LazyColumn
             }
 
             item {
@@ -261,6 +383,100 @@ fun CategoryItemCard(title: String, imageRes: Int) {
 }
 
 @Composable
+fun CategoryItemCard(
+    title: String,
+    imageRes: Int,
+    selected: Boolean,
+    count: Int,
+    onClick: () -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .width(180.dp)
+            .height(86.dp)
+            .clickable { onClick() },
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = if (selected) Color(0xFF2C6AA0) else Color(0xFF1A4A7A)
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = if (selected) 5.dp else 2.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxSize(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(start = 12.dp, end = 8.dp),
+                verticalArrangement = Arrangement.Center
+            ) {
+                Text(
+                    text = title,
+                    color = Color.White,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 14.sp,
+                    maxLines = 2
+                )
+                Text(
+                    text = "$count locales",
+                    color = Color.White.copy(alpha = 0.78f),
+                    fontSize = 12.sp
+                )
+            }
+            Image(
+                painter = painterResource(imageRes),
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.width(64.dp).fillMaxHeight()
+            )
+        }
+    }
+}
+
+@Composable
+fun EmptyLocalResults(
+    message: String,
+    actionText: String,
+    onActionClick: () -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 24.dp, vertical = 40.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Icon(
+            Icons.Default.Search,
+            contentDescription = null,
+            tint = Color(0xFF1A4A7A),
+            modifier = Modifier.size(42.dp)
+        )
+        Text(
+            text = message,
+            fontWeight = FontWeight.Bold,
+            fontSize = 18.sp,
+            color = Color(0xFF1A1A1A)
+        )
+        Text(
+            text = "Prueba otra busqueda o revisa todas las categorias disponibles.",
+            color = Color.Gray,
+            fontSize = 14.sp
+        )
+        if (actionText.isNotBlank()) {
+            Button(
+                onClick = onActionClick,
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1A4A7A)),
+                shape = RoundedCornerShape(10.dp)
+            ) {
+                Text(actionText)
+            }
+        }
+    }
+}
+
+@Composable
 fun FeaturedLocalCard(
     local: Local,
     isFavorite: Boolean,
@@ -268,6 +484,10 @@ fun FeaturedLocalCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    fun formatPrice(value: Double): String =
+        if (value % 1.0 == 0.0) value.toInt().toString()
+        else String.format(Locale.US, "%.2f", value)
+
     Card(
         modifier = modifier.clickable { onClick() },
         shape = RoundedCornerShape(12.dp),
@@ -300,7 +520,7 @@ fun FeaturedLocalCard(
             }
             Column(modifier = Modifier.padding(8.dp)) {
                 Text(
-                    text = "${local.precio_base}€/${local.tipo_precio}",
+                    text = "${formatPrice(local.precio_base)}€/${local.tipo_precio}",
                     fontWeight = FontWeight.Bold,
                     fontSize = 16.sp
                 )

@@ -101,7 +101,14 @@ fun OrioRentApp() {
             onAddLocalClick       = { pantallaActual = "form_local" },
             onFavouritesClick     = { pantallaActual = "favourites" },
             onPublicProfileClick  = { pantallaActual = "public_profile" },
-            onMyBookingsClick     = { pantallaActual = "my_bookings" }
+            onMyBookingsClick     = { pantallaActual = "my_bookings" },
+            onSettingsClick       = { pantallaActual = "settings" }
+        )
+
+        "settings" -> SettingsScreen(
+            usuarioEmail  = usuarioLogueadoEmail,
+            onBackClick   = { pantallaActual = "profile" },
+            onLogoutClick = { pantallaActual = "login" }
         )
 
         // Perfil PROPIO del usuario logueado
@@ -128,7 +135,8 @@ fun OrioRentApp() {
 
         "my_bookings" -> MyBookingsScreen(
             usuarioEmail = usuarioLogueadoEmail,
-            onBackClick  = { pantallaActual = "profile" }
+            onBackClick  = { pantallaActual = "profile" },
+            onLocalClick = { id -> idLocalSeleccionado = id; pantallaActual = "detalles_local" }
         )
     }
 }

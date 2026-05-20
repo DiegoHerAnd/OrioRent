@@ -13,7 +13,9 @@ import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
+import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -21,12 +23,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
 import kotlin.math.ceil
@@ -42,17 +44,32 @@ fun LocalDetailsScreen(
     onOwnerClick: (String) -> Unit = {},
     onContactarClick: (Int) -> Unit = {}   // idConversacion
 ) {
-    val context = LocalContext.current
-    val dbHelper = remember { OrioRentDBHelper(context) }
-    val local = remember(idLocal) { dbHelper.obtenerLocalPorId(idLocal) }
-    val usuario = remember(usuarioEmail) { dbHelper.obtenerUsuarioPorEmail(usuarioEmail) }
-    val idUsuario = usuario?.id_usuario ?: -1
-    val propietario = remember(local) { local?.let { dbHelper.obtenerUsuarioPorId(it.id_propietario) } }
-
-    var isFavorite by remember { mutableStateOf(dbHelper.esFavorito(idUsuario, idLocal)) }
+    val dbHelper = OrioRentDB
+    val scope = rememberCoroutineScope()
+    var local by remember(idLocal) { mutableStateOf<Local?>(null) }
+    var usuario by remember(usuarioEmail) { mutableStateOf<Usuario?>(null) }
+    var propietario by remember(idLocal) { mutableStateOf<Usuario?>(null) }
+    var cargandoLocal by remember(idLocal) { mutableStateOf(true) }
+    var isFavorite by remember { mutableStateOf(false) }
     var mostrarDialogoReserva by remember { mutableStateOf(false) }
     var mostrarConfirmacion by remember { mutableStateOf(false) }
     var errorMensaje by remember { mutableStateOf("") }
+
+    LaunchedEffect(idLocal, usuarioEmail) {
+        cargandoLocal = true
+        val usuarioEncontrado = dbHelper.obtenerUsuarioPorEmail(usuarioEmail)
+        val localEncontrado = dbHelper.obtenerLocalPorId(idLocal)
+        usuario = usuarioEncontrado
+        local = localEncontrado
+        propietario = localEncontrado?.let { dbHelper.obtenerUsuarioPorId(it.id_propietario) }
+        isFavorite = usuarioEncontrado?.let { dbHelper.esFavorito(it.id_usuario, idLocal) } ?: false
+        cargandoLocal = false
+    }
+
+    val localActual = local
+    val usuarioActual = usuario
+    val propietarioActual = propietario
+    val idUsuario = usuarioActual?.id_usuario ?: -1
 
     val sdf = remember { SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()) }
     val sdfDisplay = remember { SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()) }
@@ -62,12 +79,16 @@ fun LocalDetailsScreen(
     var horaInicio by remember { mutableIntStateOf(9) }
     var horaFin by remember { mutableIntStateOf(11) }
 
-    val esPorHoras = local?.tipo_precio?.lowercase() == "hora"
-    val esPropietario = local?.id_propietario == idUsuario
+    val esPorHoras = localActual?.tipo_precio?.lowercase() == "hora"
+    val esPropietario = localActual?.id_propietario == idUsuario
 
-    val precioTotal = remember(fechaInicio, fechaFin, horaInicio, horaFin, local) {
-        val precio = local?.precio_base ?: 0.0
-        when (local?.tipo_precio?.lowercase()) {
+    fun formatPrice(value: Double): String =
+        if (value % 1.0 == 0.0) value.toInt().toString()
+        else String.format(Locale.US, "%.2f", value)
+
+    val precioTotal = remember(fechaInicio, fechaFin, horaInicio, horaFin, localActual) {
+        val precio = localActual?.precio_base ?: 0.0
+        when (localActual?.tipo_precio?.lowercase()) {
             "hora" -> precio * max(1, horaFin - horaInicio)
             "semana" -> {
                 val dias = max(1L, ceil((fechaFin.timeInMillis - fechaInicio.timeInMillis) / 86_400_000.0).toLong())
@@ -80,16 +101,30 @@ fun LocalDetailsScreen(
         }
     }
 
-    if (local == null) {
-        Scaffold { Box(Modifier.fillMaxSize().padding(it), contentAlignment = Alignment.Center) { Text("Local no encontrado") } }
+    if (cargandoLocal) {
+        Scaffold {
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .padding(it),
+                contentAlignment = Alignment.Center
+            ) {
+                CircularProgressIndicator(color = Color(0xFF1A4A7A))
+            }
+        }
+        return
+    }
+
+    if (localActual == null) {
+        LocalNotFoundScreen(onBackClick = onBackClick)
         return
     }
 
     // ── Diálogo de selección ──────────────────────────────────────────────
     if (mostrarDialogoReserva) {
         ReservaDialog(
-            tipoPrecio = local.tipo_precio,
-            precioBase = local.precio_base,
+            tipoPrecio = localActual.tipo_precio,
+            precioBase = localActual.precio_base,
             fechaInicio = fechaInicio,
             fechaFin = fechaFin,
             horaInicio = horaInicio,
@@ -118,12 +153,14 @@ fun LocalDetailsScreen(
                     "${sdf.format(fechaInicio.time)} ${horaFin.toString().padStart(2,'0')}:00"
                 else sdf.format(fechaFin.time)
 
+                scope.launch {
                 if (dbHelper.verificarDisponibilidad(idLocal, inicioStr, finStr)) {
-                    val res = dbHelper.insertarReserva(idUsuario, local.id_local, inicioStr, finStr, precioTotal)
+                    val res = dbHelper.insertarReserva(idUsuario, localActual.id_local, inicioStr, finStr, precioTotal)
                     if (res != -1L) { mostrarDialogoReserva = false; mostrarConfirmacion = true }
                     else errorMensaje = "Error al guardar la reserva. Inténtalo de nuevo."
                 } else {
                     errorMensaje = "⚠️ El local no está disponible en las fechas seleccionadas."
+                }
                 }
             },
             onDismiss = { mostrarDialogoReserva = false; errorMensaje = "" }
@@ -142,7 +179,7 @@ fun LocalDetailsScreen(
             title = { Text("¡Reserva confirmada!", fontWeight = FontWeight.Bold) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text("Local: ${local.nombre}")
+                    Text("Local: ${localActual.nombre}")
                     Text(resumen)
                     Spacer(Modifier.height(4.dp))
                     Text("${"%.2f".format(precioTotal)}€", fontWeight = FontWeight.Bold, fontSize = 20.sp, color = Color(0xFF1A4A7A))
@@ -163,8 +200,8 @@ fun LocalDetailsScreen(
                 Row(Modifier.padding(horizontal = 16.dp, vertical = 12.dp).fillMaxWidth(),
                     Arrangement.SpaceBetween, Alignment.CenterVertically) {
                     Column {
-                        Text("${local.precio_base}€", fontWeight = FontWeight.Bold, fontSize = 20.sp)
-                        Text("/ ${local.tipo_precio}", fontSize = 14.sp, color = Color.Gray)
+                        Text("${formatPrice(localActual.precio_base)}€", fontWeight = FontWeight.Bold, fontSize = 20.sp)
+                        Text("/ ${localActual.tipo_precio}", fontSize = 14.sp, color = Color.Gray)
                     }
                     Button(
                         onClick = { mostrarDialogoReserva = true },
@@ -184,7 +221,7 @@ fun LocalDetailsScreen(
             Column(Modifier.verticalScroll(rememberScrollState())) {
                 Box(Modifier.fillMaxWidth().height(300.dp)) {
                     Image(
-                        painter = painterResource(if (local.id_categoria == 1) R.drawable.fiesta else R.drawable.logooriorent),
+                        painter = painterResource(if (localActual.id_categoria == 1) R.drawable.fiesta else R.drawable.logooriorent),
                         contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize()
                     )
                 }
@@ -192,16 +229,16 @@ fun LocalDetailsScreen(
                     shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp),
                     color = MaterialTheme.colorScheme.background) {
                     Column(Modifier.padding(24.dp)) {
-                        Text(local.nombre, fontWeight = FontWeight.Bold, fontSize = 28.sp)
-                        Text(local.direccion, color = Color.Gray, fontSize = 16.sp)
+                        Text(localActual.nombre, fontWeight = FontWeight.Bold, fontSize = 28.sp)
+                        Text(localActual.direccion, color = Color.Gray, fontSize = 16.sp)
                         HorizontalDivider(Modifier.padding(vertical = 16.dp))
 
                         // Tarjeta propietario
-                        if (propietario != null && !esPropietario) {
+                        if (propietarioActual != null && !esPropietario) {
                             Text("Propietario", fontWeight = FontWeight.Bold, fontSize = 18.sp)
                             Spacer(Modifier.height(8.dp))
                             Card(
-                                modifier = Modifier.fillMaxWidth().clickable { onOwnerClick(propietario.email) },
+                                modifier = Modifier.fillMaxWidth().clickable { onOwnerClick(propietarioActual.email) },
                                 shape = RoundedCornerShape(12.dp),
                                 colors = CardDefaults.cardColors(containerColor = Color(0xFFF0F4FF)),
                                 elevation = CardDefaults.cardElevation(2.dp)
@@ -209,21 +246,23 @@ fun LocalDetailsScreen(
                                 Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
                                     Box(Modifier.size(48.dp).clip(CircleShape).background(Color(0xFF1A4A7A)),
                                         contentAlignment = Alignment.Center) {
-                                        Text(propietario.nombre.take(1).uppercase(), color = Color.White,
+                                        Text(propietarioActual.nombre.take(1).uppercase(), color = Color.White,
                                             fontWeight = FontWeight.Bold, fontSize = 20.sp)
                                     }
                                     Spacer(Modifier.width(12.dp))
                                     Column(Modifier.weight(1f)) {
-                                        Text(propietario.nombre, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                                        Text(propietarioActual.nombre, fontWeight = FontWeight.Bold, fontSize = 16.sp)
                                         Text("Ver perfil →", color = Color(0xFF1A4A7A), fontSize = 13.sp)
                                     }
                                     // Botón Contactar
                                     Button(
                                         onClick = {
-                                            val idConv = dbHelper.obtenerOCrearConversacion(
-                                                idUsuario, propietario.id_usuario, idLocal
-                                            )
-                                            onContactarClick(idConv)
+                                            scope.launch {
+                                                val idConv = dbHelper.obtenerOCrearConversacion(
+                                                    idUsuario, propietarioActual.id_usuario, idLocal
+                                                )
+                                                onContactarClick(idConv)
+                                            }
                                         },
                                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1A4A7A)),
                                         shape = RoundedCornerShape(8.dp),
@@ -238,11 +277,11 @@ fun LocalDetailsScreen(
 
                         Text("Información", fontWeight = FontWeight.Bold, fontSize = 20.sp)
                         Spacer(Modifier.height(8.dp))
-                        InfoRow(Icons.Default.Person, "${local.capacidad} personas")
+                        InfoRow(Icons.Default.Person, "${localActual.capacidad} personas")
                         Spacer(Modifier.height(16.dp))
                         Text("Descripción", fontWeight = FontWeight.Bold, fontSize = 20.sp)
                         Spacer(Modifier.height(8.dp))
-                        Text(local.descripcion, fontSize = 16.sp, lineHeight = 24.sp)
+                        Text(localActual.descripcion, fontSize = 16.sp, lineHeight = 24.sp)
                         Spacer(Modifier.height(16.dp))
                         Text("Ubicación", fontWeight = FontWeight.Bold, fontSize = 20.sp)
                         Spacer(Modifier.height(8.dp))
@@ -256,7 +295,9 @@ fun LocalDetailsScreen(
                 IconButton(onClick = onBackClick, Modifier.background(Color.White.copy(alpha = 0.7f), CircleShape)) {
                     Icon(Icons.Default.ArrowBack, "Volver")
                 }
-                IconButton(onClick = { isFavorite = dbHelper.toggleFavorito(idUsuario, idLocal) },
+                IconButton(onClick = {
+                    scope.launch { isFavorite = dbHelper.toggleFavorito(idUsuario, idLocal) }
+                },
                     Modifier.background(Color.White.copy(alpha = 0.7f), CircleShape)) {
                     Icon(if (isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
                         "Favorito", tint = if (isFavorite) Color.Red else Color.Black)
@@ -446,5 +487,82 @@ fun InfoRow(icon: androidx.compose.ui.graphics.vector.ImageVector, text: String)
         Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
         Spacer(modifier = Modifier.width(8.dp))
         Text(text, fontSize = 16.sp)
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun LocalNotFoundScreen(onBackClick: () -> Unit) {
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Local no encontrado", fontWeight = FontWeight.Bold) },
+                navigationIcon = {
+                    IconButton(onClick = onBackClick) {
+                        Icon(Icons.Default.ArrowBack, contentDescription = "Volver")
+                    }
+                }
+            )
+        }
+    ) { padding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .background(Color.White)
+                .padding(horizontal = 24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(88.dp)
+                    .clip(CircleShape)
+                    .background(Color(0xFFF0F4FF)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    Icons.Default.Search,
+                    contentDescription = null,
+                    tint = Color(0xFF1A4A7A),
+                    modifier = Modifier.size(42.dp)
+                )
+            }
+            Spacer(Modifier.height(24.dp))
+            Text(
+                "No hemos encontrado este local",
+                fontWeight = FontWeight.Bold,
+                fontSize = 24.sp,
+                color = Color(0xFF1A1A1A)
+            )
+            Spacer(Modifier.height(8.dp))
+            Text(
+                "Puede que se haya eliminado o que el enlace ya no este disponible.",
+                color = Color.Gray,
+                fontSize = 16.sp,
+                lineHeight = 22.sp
+            )
+            Spacer(Modifier.height(28.dp))
+            Button(
+                onClick = onBackClick,
+                modifier = Modifier.fillMaxWidth().height(50.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1A4A7A)),
+                shape = RoundedCornerShape(10.dp)
+            ) {
+                Icon(Icons.Default.Home, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(8.dp))
+                Text("Volver al inicio")
+            }
+            Spacer(Modifier.height(10.dp))
+            OutlinedButton(
+                onClick = onBackClick,
+                modifier = Modifier.fillMaxWidth().height(50.dp),
+                shape = RoundedCornerShape(10.dp)
+            ) {
+                Icon(Icons.Default.ArrowBack, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(8.dp))
+                Text("Volver atras")
+            }
+        }
     }
 }

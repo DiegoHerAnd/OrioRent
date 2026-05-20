@@ -19,10 +19,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -33,21 +33,31 @@ fun UserPublicProfileScreen(
     onAddLocalClick: () -> Unit,
     onLocalClick: (Int) -> Unit
 ) {
-    val context = LocalContext.current
-    val dbHelper = remember { OrioRentDBHelper(context) }
+    val dbHelper = OrioRentDB
+    val scope = rememberCoroutineScope()
 
-    val usuarioLogueado = remember(usuarioEmail) { dbHelper.obtenerUsuarioPorEmail(usuarioEmail) }
+    var usuarioLogueado by remember(usuarioEmail) { mutableStateOf<Usuario?>(null) }
     val idUsuarioLogueado = usuarioLogueado?.id_usuario ?: -1
 
     // Datos del perfil que estamos viendo
-    val perfilUsuario = remember(emailPerfil) { dbHelper.obtenerUsuarioPorEmail(emailPerfil) }
+    var perfilUsuario by remember(emailPerfil) { mutableStateOf<Usuario?>(null) }
     val idPerfil = perfilUsuario?.id_usuario ?: -1
 
     val esMiPerfil = idUsuarioLogueado == idPerfil
 
     var refreshCount by remember { mutableIntStateOf(0) }
-    val misLocales = remember(refreshCount, idPerfil) {
-        dbHelper.obtenerLocales().filter { it.id_propietario == idPerfil }
+    var misLocales by remember { mutableStateOf<List<Local>>(emptyList()) }
+    var cargandoPerfil by remember { mutableStateOf(true) }
+
+    LaunchedEffect(usuarioEmail, emailPerfil, refreshCount) {
+        cargandoPerfil = true
+        val usuarioEncontrado = dbHelper.obtenerUsuarioPorEmail(usuarioEmail)
+        val perfilEncontrado = dbHelper.obtenerUsuarioPorEmail(emailPerfil)
+        usuarioLogueado = usuarioEncontrado
+        perfilUsuario = perfilEncontrado
+        val perfilId = perfilEncontrado?.id_usuario ?: -1
+        misLocales = dbHelper.obtenerLocales().filter { it.id_propietario == perfilId }
+        cargandoPerfil = false
     }
 
     var selectedTab by remember { mutableIntStateOf(0) }
@@ -140,7 +150,9 @@ fun UserPublicProfileScreen(
 
             // ── Contenido de tab ──────────────────────────────────────────
             Box(Modifier.fillMaxSize().padding(16.dp), contentAlignment = Alignment.TopCenter) {
-                when (selectedTab) {
+                if (cargandoPerfil) {
+                    CircularProgressIndicator(color = Color(0xFF1A4A7A))
+                } else when (selectedTab) {
                     0 -> {
                         if (misLocales.isEmpty()) {
                             Column(
@@ -167,10 +179,19 @@ fun UserPublicProfileScreen(
                                 modifier = Modifier.fillMaxSize()
                             ) {
                                 items(misLocales) { local ->
+                                    var isFavorite by remember(local.id_local, idUsuarioLogueado) { mutableStateOf(false) }
+                                    LaunchedEffect(local.id_local, idUsuarioLogueado) {
+                                        isFavorite = dbHelper.esFavorito(idUsuarioLogueado, local.id_local)
+                                    }
                                     FeaturedLocalCard(
                                         local = local,
-                                        isFavorite = dbHelper.esFavorito(idUsuarioLogueado, local.id_local),
-                                        onFavoriteToggle = { dbHelper.toggleFavorito(idUsuarioLogueado, local.id_local); refreshCount++ },
+                                        isFavorite = isFavorite,
+                                        onFavoriteToggle = {
+                                            scope.launch {
+                                                isFavorite = dbHelper.toggleFavorito(idUsuarioLogueado, local.id_local)
+                                                refreshCount++
+                                            }
+                                        },
                                         onClick = { onLocalClick(local.id_local) },
                                         modifier = Modifier.fillMaxWidth()
                                     )
